@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>¿Cómo comparas los decimales? · Diagnóstico bayesiano con hipótesis nominales</title>
-<meta name="description" content="Recurso adaptativo bayesiano de ejemplo: diagnóstico de errores conceptuales (hipótesis nominales, sin orden) al comparar números decimales.">
+<title>¿Cómo comparas los decimales? · Diagnóstico bayesiano multifactorial</title>
+<meta name="description" content="Recurso adaptativo bayesiano de ejemplo: diagnóstico multifactorial de errores conceptuales al comparar números decimales.">
 <style>
   :root {
     --plano: #f9f9f7;
@@ -447,7 +447,7 @@
 <div class="contenedor">
 
   <header>
-    <p class="antetitulo">Recurso adaptativo bayesiano · hipótesis nominales</p>
+    <p class="antetitulo">Recurso adaptativo bayesiano · perfil multifactorial</p>
     <h1>¿Cómo comparas los decimales?</h1>
     <p class="subtitulo">Este recurso busca averiguar <em>cómo</em> comparas los números
     decimales y, si te equivocas, descubrir exactamente en qué consiste tu error para poder
@@ -504,19 +504,19 @@
       <div class="contenido-plegable">
         <p>Este recurso es un ejemplo de la
         <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
-        con <strong>hipótesis nominales</strong> (no jerárquicas): en lugar de estimar un nivel ordenado,
-        mantiene una distribución de probabilidad sobre cuatro explicaciones alternativas del comportamiento
-        del alumno, sin orden entre ellas:</p>
+        con un modelo <strong>multifactorial</strong>: en lugar de forzar una sola explicación,
+        estima por separado si cada error está presente o ausente. El perfil final puede detectar
+        de 0 a 3 fallos simultáneos:</p>
         <ul class="lista-hipotesis">
           <li><strong>Dominio del orden decimal</strong>: compara correctamente.</li>
           <li><strong>Regla del número entero</strong>: «más cifras, mayor» (0,25 &gt; 0,7 porque 25 &gt; 7).</li>
           <li><strong>Regla de la fracción</strong>: «menos cifras, mayor» (0,3 &gt; 0,45).</li>
           <li><strong>Cero invisible</strong>: ignora los ceros tras la coma (lee 0,07 como 0,7).</li>
         </ul>
-        <p>Cada pregunta lleva un vector de verosimilitudes
-        P(acierto&nbsp;|&nbsp;H<sub>i</sub>) — no se usa IRT logística, que exige orden —, la siguiente pregunta se elige por
-        máxima ganancia esperada de información y el diagnóstico final es la hipótesis de máxima probabilidad
-        posterior (MAP) con su confianza. Durante la sesión puedes abrir el panel «Ver el estado bayesiano».</p>
+        <p>Cada pregunta parte del mismo banco calibrado, pero el sistema actualiza por separado la
+        probabilidad de cada error. La siguiente pregunta se elige por máxima ganancia esperada de
+        información y el diagnóstico final devuelve un perfil con 0, 1, 2 o 3 fallos detectados y
+        su nivel de seguridad. Durante la sesión puedes abrir el panel «Ver el estado bayesiano».</p>
       </div>
     </details>
 
@@ -541,10 +541,11 @@
       <summary>Ver el estado bayesiano (para docentes)</summary>
       <div class="grafico" id="grafico-estado"></div>
       <p class="dato-estado" id="dato-entropia"></p>
-      <p class="nota-panel">Las barras muestran la seguridad actual del sistema en cada una de las
-      cuatro maneras de comparar decimales que considera (una correcta y tres errores frecuentes;
-      suman el 100 %) y cambian con cada respuesta. El diagnóstico se cierra en firme cuando la
-      entropía baja del umbral y la hipótesis más probable supera el 80 %.</p>
+      <p class="nota-panel">Las barras muestran, por separado, la probabilidad actual de cada uno
+      de los tres errores frecuentes que analiza el sistema. Ya no suman el 100 %: un alumno puede
+      mostrar varios errores a la vez. El diagnóstico se cierra en firme cuando cada error queda
+      clasificado como presente o ausente con la confianza exigida y hay al menos dos preguntas
+      contestadas en cada categoría.</p>
     </details>
   </section>
 
@@ -562,11 +563,10 @@
       </div>
       <p class="aviso-provisional oculto" id="aviso-provisional"></p>
 
-      <h2>Lo que se ha descartado</h2>
-      <p class="nota-grafico">El test buscaba cuál de estas cuatro maneras de comparar decimales
-      es la tuya: una correcta y tres errores frecuentes. Cada barra indica la seguridad del
-      sistema en cada posibilidad (entre las cuatro suman el 100 %). La barra larga, en negrita,
-      es el resultado; las barras cortas son las posibilidades descartadas.</p>
+      <h2>Perfil de errores</h2>
+      <p class="nota-grafico">Cada barra indica la probabilidad de presencia de uno de los errores
+      analizados. Como el modelo es multifactorial, varias barras pueden salir altas al mismo
+      tiempo: el resultado ya no es un único error, sino un perfil.</p>
       <div class="grafico" id="grafico-final"></div>
       <p class="nota-panel" id="nota-parada"></p>
       <details class="tecnica">
@@ -597,7 +597,7 @@
   </section>
 
   <footer>
-    <p>Ejemplo de hipótesis nominales de la
+    <p>Ejemplo multifactorial de la
     <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
     · Juan José de Haro · Código <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a>,
     contenido <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">CC BY-SA 4.0</a>.</p>
@@ -618,7 +618,7 @@
 
   function nuevaSesion() {
     estado = {
-      p: M.priorUniforme(),
+      p: M.priorPerfiles(),
       restantes: M.BANCO.slice(),
       usoCategorias: {},
       recorrido: [], // { pregunta, acierto, opcionElegida }
@@ -682,30 +682,41 @@
       : 'Pregunta ' + numeroPregunta + ' de un máximo de ' + M.PARAMETROS.N_MAX;
   }
 
-  /* ---------------- Gráfico de barras del posterior ---------------- */
+  function estadoFactor(prob) {
+    if (prob >= M.PARAMETROS.P_MIN) return 'presente';
+    if (prob <= 1 - M.PARAMETROS.P_MIN) return 'ausente';
+    return 'indeterminado';
+  }
+
+  function unirTextos(lista) {
+    return lista.filter(Boolean).join(' ');
+  }
+
+  /* ---------------- Gráfico de barras del perfil ---------------- */
 
   function pintarPosterior(contenedor, p) {
     contenedor.innerHTML = '';
-    const iMap = M.indiceMAP(p);
-    M.HIPOTESIS.forEach(function (h, i) {
+    const marginales = M.marginalesFactores(p);
+    M.FACTORES.forEach(function (f, i) {
+      const prob = marginales[i];
       const fila = document.createElement('div');
-      fila.className = 'fila' + (i === iMap ? ' map' : '');
-      fila.title = h.nombre + ': ' + porcentaje(p[i]);
+      fila.className = 'fila' + (estadoFactor(prob) === 'presente' ? ' map' : '');
+      fila.title = f.nombre + ': ' + porcentaje(prob);
 
       const etiqueta = document.createElement('span');
       etiqueta.className = 'etiqueta';
-      etiqueta.textContent = h.corta;
+      etiqueta.textContent = f.corta;
 
       const pista = document.createElement('div');
       pista.className = 'pista';
       const barra = document.createElement('div');
       barra.className = 'barra';
-      barra.style.width = (p[i] * 100) + '%';
+      barra.style.width = (prob * 100) + '%';
       pista.appendChild(barra);
 
       const valor = document.createElement('span');
       valor.className = 'valor';
-      valor.textContent = porcentaje(p[i]);
+      valor.textContent = porcentaje(prob);
 
       fila.appendChild(etiqueta);
       fila.appendChild(pista);
@@ -715,10 +726,13 @@
   }
 
   function actualizarPanelEstado() {
+    const perfil = M.evaluarPerfil(estado.p);
     pintarPosterior($('grafico-estado'), estado.p);
     $('dato-entropia').textContent =
-      'Entropía H = ' + coma(M.entropia(estado.p), 2) + ' bits · umbral de cierre H⋆ = ' +
-      coma(M.H_STOP, 2) + ' bits · preguntas respondidas: ' + estado.recorrido.length;
+      'Entropía total H = ' + coma(M.entropia(estado.p), 2) + ' bits · umbral de cierre H* = ' +
+      coma(M.H_STOP, 2) + ' bits · errores ya resueltos: ' +
+      (perfil.presentes.length + perfil.ausentes.length) + '/' + M.FACTORES.length +
+      ' · preguntas respondidas: ' + estado.recorrido.length;
   }
 
   /* ---------------- Flujo de preguntas ---------------- */
@@ -756,7 +770,7 @@
     const acierto = indiceElegido === q.correcta;
 
     // Actualización bayesiana: prior × verosimilitud, normalizado (modelo.js).
-    estado.p = M.actualizar(estado.p, q, acierto);
+    estado.p = M.actualizar(estado.p, q, indiceElegido);
 
     estado.restantes = estado.restantes.filter(function (x) { return x.id !== q.id; });
     estado.usoCategorias[q.categoria] = (estado.usoCategorias[q.categoria] || 0) + 1;
@@ -796,7 +810,12 @@
     $('retro').classList.remove('oculto');
 
     // ¿Toca cerrar la sesión?
-    estado.cierre = M.evaluarParada(estado.p, estado.recorrido.length, estado.restantes);
+    estado.cierre = M.evaluarParada(
+      estado.p,
+      estado.recorrido.length,
+      estado.restantes,
+      estado.usoCategorias
+    );
 
     actualizarProgreso();
     actualizarPanelEstado();
@@ -810,35 +829,58 @@
 
   function mostrarFinal() {
     const p = estado.p;
-    const iMap = M.indiceMAP(p);
-    const h = M.HIPOTESIS[iMap];
+    const perfil = M.evaluarPerfil(p);
     const firme = estado.cierre.firme;
+    const presentes = perfil.presentes;
+    const ausentes = perfil.ausentes;
+    const indeterminados = perfil.indeterminados;
+    const nPresentes = perfil.numeroPresentes;
+    const confianza = M.confianzaVeredicto(p);
 
     const insignia = $('insignia');
     insignia.textContent = firme ? 'Diagnóstico firme' : 'Diagnóstico provisional';
     insignia.className = 'insignia ' + (firme ? 'firme' : 'provisional');
 
-    // El resultado se enuncia como una afirmación directa: o un error
-    // concreto detectado, o la ausencia de errores.
-    if (h.tipo === 'error') {
+    if (nPresentes === 0) {
       $('frase-resultado').textContent = firme
-        ? 'Tus respuestas muestran un error concreto:'
-        : 'Tus respuestas apuntan a un error concreto:';
+        ? 'Tus respuestas no muestran ninguno de los errores analizados:'
+        : 'Tus respuestas apuntan a que no aparece con claridad ninguno de los errores analizados:';
+      $('diagnostico-nombre').textContent = 'No se detectan fallos en los 3 errores analizados';
     } else {
       $('frase-resultado').textContent = firme
-        ? 'Tus respuestas no muestran ningún error:'
-        : 'Tus respuestas apuntan a que no hay ningún error:';
+        ? 'Tus respuestas muestran un perfil claro:'
+        : 'Tus respuestas apuntan a este perfil:';
+      $('diagnostico-nombre').textContent =
+        'Se detectan ' + nPresentes + ' fallo' + (nPresentes === 1 ? '' : 's') +
+        ' de los 3 errores analizados';
     }
-    $('diagnostico-nombre').textContent = h.titular;
-    $('diagnostico-descripcion').textContent = h.descripcion;
-    $('cifra-confianza').textContent = porcentaje(p[iMap]);
+
+    const trozosDescripcion = [];
+    if (presentes.length) {
+      trozosDescripcion.push(
+        'Detectados: ' + presentes.map(function (d) { return d.factor.corta; }).join('; ') + '.'
+      );
+    }
+    if (ausentes.length) {
+      trozosDescripcion.push(
+        'Descartados: ' + ausentes.map(function (d) { return d.factor.corta; }).join('; ') + '.'
+      );
+    }
+    if (indeterminados.length) {
+      trozosDescripcion.push(
+        'Aun no resueltos con claridad: ' +
+        indeterminados.map(function (d) { return d.factor.corta; }).join('; ') + '.'
+      );
+    }
+    $('diagnostico-descripcion').textContent = unirTextos(trozosDescripcion);
+    $('cifra-confianza').textContent = porcentaje(confianza);
 
     const aviso = $('aviso-provisional');
     if (!firme) {
       aviso.textContent =
-        'El sistema no ha llegado al 80 % de seguridad que se exige para dar el resultado ' +
-        'por definitivo: toma este diagnóstico como una orientación, no como una conclusión. ' +
-        'Conviene repetirlo otro día o contrastarlo con una conversación con el alumno.';
+        'El sistema no ha conseguido clasificar con al menos un 80 % de seguridad todos los ' +
+        'errores analizados. Toma este perfil como una orientación y conviene contrastarlo con ' +
+        'otra sesión o con observación directa del alumno.';
       aviso.classList.remove('oculto');
     } else {
       aviso.classList.add('oculto');
@@ -862,12 +904,13 @@
       (motivosLlanos[estado.cierre.motivo] || '(' + estado.cierre.motivo + ')') + '.';
 
     $('nota-cierre').textContent =
-      'Hipótesis MAP: ' + h.nombre + '. Distribución posterior tras ' +
-      estado.recorrido.length +
-      ' actualizaciones bayesianas desde un prior uniforme (25 % por hipótesis). ' +
+      'Perfil multifactorial tras ' + estado.recorrido.length +
+      ' actualizaciones bayesianas desde un prior del 25 % para cada error. ' +
       'Motivo de parada: ' + estado.cierre.motivo + ' · entropía final H = ' +
-      coma(M.entropia(p), 2) + ' bits (umbral de cierre H⋆ = ' + coma(M.H_STOP, 2) +
-      ') · confianza exigida para el cierre firme: max(p) ≥ 0,80.';
+      coma(M.entropia(p), 2) + ' bits (umbral de cierre H* = ' + coma(M.H_STOP, 2) +
+      ') · confianza mínima del veredicto: ' + porcentaje(confianza) +
+      ' · cobertura mínima exigida: ' + M.PARAMETROS.MIN_POR_CATEGORIA +
+      ' preguntas por categoría.';
 
     // Tabla por categoría, con exigencia de muestra mínima (2 intentos).
     const cuerpo = $('tabla-categorias');
@@ -893,8 +936,17 @@
       cuerpo.appendChild(fila);
     });
 
-    $('recomendacion').textContent = h.recomendacion;
-    $('siguiente-paso').textContent = h.siguientePaso;
+    if (presentes.length) {
+      $('recomendacion').textContent = presentes.map(function (d) {
+        return d.factor.recomendacion;
+      }).join(' ');
+      $('siguiente-paso').textContent = presentes.map(function (d) {
+        return d.factor.siguientePaso;
+      }).join(' ');
+    } else {
+      $('recomendacion').textContent = M.HIPOTESIS[0].recomendacion;
+      $('siguiente-paso').textContent = M.HIPOTESIS[0].siguientePaso;
+    }
 
     const listaRecorrido = $('lista-recorrido');
     listaRecorrido.innerHTML = '';

@@ -1,19 +1,17 @@
 #!/usr/bin/env node
 /*
- * Validación de separabilidad del diseño (Monte Carlo).
+ * Validación del perfil multifactorial (Monte Carlo).
  *
  * Herramienta del autor del recurso, no del alumnado: comprueba con qué
- * fiabilidad el banco de preguntas distingue las cuatro hipótesis nominales.
- * Genera respondentes sintéticos que se comportan según cada hipótesis
- * (aciertan cada pregunta con la probabilidad P(acierto | H_i, q) del banco),
- * les pasa el mismo test adaptativo con la misma selección y el mismo
- * criterio de parada, y construye la matriz de confusión
- * (hipótesis real × hipótesis diagnosticada).
+ * fiabilidad el banco de preguntas distingue perfiles con varios errores a la vez.
+ * Genera respondentes sintéticos definidos por un subconjunto de factores presentes,
+ * les pasa el mismo test adaptativo con la misma selección y el mismo criterio de
+ * parada, y construye una matriz de confusión (perfil real × perfil diagnosticado).
  *
- * Mide la fiabilidad BAJO EL MODELO (si el diseño discrimina las hipótesis),
+ * Mide la fiabilidad BAJO EL MODELO (si el diseño discrimina los perfiles),
  * no la validez empírica de los parámetros.
  *
- * Uso:  node validacion.js [simulaciones_por_hipotesis] [semilla]
+ * Uso:  node validacion.js [simulaciones_por_perfil] [semilla]
  *       node validacion.js 1000 42
  *
  * Licencia: AGPL-3.0
@@ -37,9 +35,31 @@ function crearRng(semilla) {
   };
 }
 
-// Una sesión completa del test para un respondente sintético con la hipótesis hReal.
-function simularSesion(hReal, rng) {
-  let p = M.priorUniforme();
+function etiquetaPerfil(ids) {
+  return ids.length ? ids.join('+') : 'sin-fallos';
+}
+
+function perfilDesdePosterior(p) {
+  return M.perfilMAP(p).ids;
+}
+
+function generarPerfiles() {
+  const perfiles = [];
+  const ids = M.FACTORES.map(function (f) { return f.id; });
+  const total = 1 << ids.length;
+  for (let mascara = 0; mascara < total; mascara++) {
+    const perfil = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (mascara & (1 << i)) perfil.push(ids[i]);
+    }
+    perfiles.push(perfil);
+  }
+  return perfiles;
+}
+
+// Una sesión completa del test para un respondente sintético con el perfil real.
+function simularSesion(perfilReal, rng) {
+  let p = M.priorPerfiles();
   let restantes = M.BANCO.slice();
   const usoCategorias = {};
   let respondidas = 0;
@@ -47,37 +67,41 @@ function simularSesion(hReal, rng) {
 
   for (;;) {
     const q = M.seleccionarSiguiente(p, restantes, usoCategorias, rng);
-    const acierto = rng() < q.L[hReal];
-    p = M.actualizar(p, q, acierto);
+    const indiceRespuesta = M.muestrearRespuestaPerfil(q, perfilReal, rng);
+    p = M.actualizar(p, q, indiceRespuesta);
     restantes = restantes.filter(function (x) { return x.id !== q.id; });
     usoCategorias[q.categoria] = (usoCategorias[q.categoria] || 0) + 1;
     respondidas += 1;
 
-    cierre = M.evaluarParada(p, respondidas, restantes);
+    cierre = M.evaluarParada(p, respondidas, restantes, usoCategorias);
     if (cierre.parar) break;
   }
 
   return {
-    diagnostico: M.indiceMAP(p),
+    diagnostico: perfilDesdePosterior(p),
     firme: cierre.firme,
     preguntas: respondidas,
-    confianza: Math.max.apply(null, p)
+    confianza: M.confianzaVeredicto(p)
   };
 }
 
 /* ---------------- Ejecución ---------------- */
 
 const rng = crearRng(SEMILLA);
-const n = M.HIPOTESIS.length;
+const perfiles = generarPerfiles();
+const n = perfiles.length;
 const confusion = Array.from({ length: n }, function () { return new Array(n).fill(0); });
-const estadisticas = M.HIPOTESIS.map(function () {
+const estadisticas = perfiles.map(function () {
   return { firmes: 0, preguntas: 0, confianza: 0 };
 });
 
 for (let h = 0; h < n; h++) {
   for (let s = 0; s < N_SIMULACIONES; s++) {
-    const r = simularSesion(h, rng);
-    confusion[h][r.diagnostico] += 1;
+    const r = simularSesion(perfiles[h], rng);
+    const d = perfiles.findIndex(function (perfil) {
+      return etiquetaPerfil(perfil) === etiquetaPerfil(r.diagnostico);
+    });
+    confusion[h][d] += 1;
     if (r.firme) estadisticas[h].firmes += 1;
     estadisticas[h].preguntas += r.preguntas;
     estadisticas[h].confianza += r.confianza;
@@ -89,17 +113,17 @@ for (let h = 0; h < n; h++) {
 function pct(x) { return (100 * x).toFixed(1).padStart(6) + ' %'; }
 function ancho(texto, w) { return String(texto).padEnd(w); }
 
-console.log('Validación de separabilidad del diseño (Monte Carlo)');
-console.log('====================================================');
-console.log('Simulaciones por hipótesis: ' + N_SIMULACIONES + ' · semilla: ' + SEMILLA);
+console.log('Validación del perfil multifactorial (Monte Carlo)');
+console.log('===============================================');
+console.log('Simulaciones por perfil: ' + N_SIMULACIONES + ' · semilla: ' + SEMILLA);
 console.log('Banco: ' + M.BANCO.length + ' preguntas · parada: N_MIN=' + M.PARAMETROS.N_MIN +
   ', N_MAX=' + M.PARAMETROS.N_MAX + ', p_min=' + M.PARAMETROS.P_MIN +
   ', H_stop=' + M.H_STOP.toFixed(3) + ' bits');
 console.log('');
-console.log('Matriz de confusión (filas: hipótesis real; columnas: diagnóstico MAP)');
+console.log('Matriz de confusión (filas: perfil real; columnas: perfil diagnosticado)');
 console.log('');
 
-const etiquetas = M.HIPOTESIS.map(function (h) { return h.corta; });
+const etiquetas = perfiles.map(etiquetaPerfil);
 const wFila = Math.max.apply(null, etiquetas.map(function (e) { return e.length; })) + 2;
 
 let cabecera = ancho('', wFila);
@@ -119,7 +143,7 @@ for (let h = 0; h < n; h++) {
 console.log('');
 console.log('Exactitud global del diagnóstico: ' + pct(aciertosTotales / (n * N_SIMULACIONES)).trim());
 console.log('');
-console.log('Por hipótesis:');
+console.log('Por perfil:');
 for (let h = 0; h < n; h++) {
   const e = estadisticas[h];
   console.log('  ' + ancho(etiquetas[h], wFila) +
@@ -130,4 +154,4 @@ for (let h = 0; h < n; h++) {
 console.log('');
 console.log('Nota: esta matriz mide la fiabilidad bajo el modelo (los respondentes');
 console.log('sintéticos salen del propio modelo). Indica si el diseño del banco');
-console.log('discrimina las hipótesis, no si los parámetros reflejan la realidad.');
+console.log('discrimina los perfiles, no si los parámetros reflejan la realidad.');

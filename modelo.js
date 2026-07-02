@@ -1,14 +1,15 @@
 /*
- * Modelo bayesiano con hipótesis nominales (no jerárquicas).
+ * Modelo bayesiano multifactorial para errores nominales.
  *
  * Ejemplo de la metodología de recursos adaptativos bayesianos:
  * https://jjdeharo.github.io/recursos-adaptativos/
  *
- * Las hipótesis no representan niveles ordenados de dominio, sino errores
- * conceptuales alternativos al comparar números decimales. Por eso no se usa
- * IRT logística: cada pregunta lleva un vector de verosimilitudes
- * P(acierto | H_i, q), una por hipótesis, asignado por tramos según si la
- * pregunta ataca o no el concepto que cada error distorsiona.
+ * Los factores no representan niveles ordenados de dominio, sino errores
+ * conceptuales que pueden coexistir al comparar números decimales. Por eso no
+ * se usa IRT logística: el banco parte de las verosimilitudes calibradas del
+ * modelo nominal original y las convierte en un modelo exacto sobre perfiles
+ * completos de errores. La actualización usa la opción elegida, no solo el
+ * binario acierto/fallo, para aprovechar el valor diagnóstico de los distractores.
  *
  * Este archivo lo comparten el recurso del alumno (index.html) y la
  * herramienta de validación del autor (validacion.js, Node).
@@ -27,8 +28,8 @@
   'use strict';
 
   /* ------------------------------------------------------------------ */
-  /* Hipótesis nominales: sin orden, sin theta.                          */
-  /* El diagnóstico final es la hipótesis MAP y su probabilidad.         */
+  /* Factores de error: cada uno puede estar presente o ausente.         */
+  /* El diagnóstico final es un perfil con 0-3 errores detectados.       */
   /* ------------------------------------------------------------------ */
 
   const HIPOTESIS = [
@@ -106,6 +107,24 @@
         'del tipo 0,5 / 0,05 / 0,005 hasta automatizar el papel del cero.'
     }
   ];
+
+  const FACTORES = HIPOTESIS
+    .map(function (h, indiceHipotesis) {
+      return { h: h, indiceHipotesis: indiceHipotesis };
+    })
+    .filter(function (x) { return x.h.tipo === 'error'; })
+    .map(function (x) {
+      return {
+        id: x.h.id,
+        indiceHipotesis: x.indiceHipotesis,
+        nombre: x.h.nombre,
+        corta: x.h.corta.replace(/^Error:\s*/, ''),
+        titular: x.h.titular,
+        descripcion: x.h.descripcion,
+        recomendacion: x.h.recomendacion,
+        siguientePaso: x.h.siguientePaso
+      };
+    });
 
   /* ------------------------------------------------------------------ */
   /* Banco de preguntas.                                                 */
@@ -491,55 +510,197 @@
   const PARAMETROS = {
     N_MIN: 5, // mínimo de preguntas antes de poder cerrar
     N_MAX: 12, // máximo práctico
-    P_MIN: 0.8, // confianza exigida a la hipótesis MAP para cierre firme
+    P_MIN: 0.8, // confianza exigida para declarar presente/ausente un factor
+    PRIOR_ERROR: 0.25, // prior marginal de presencia para cada error
+    MIN_POR_CATEGORIA: 2, // cobertura mínima por categoría para el informe final
+    N_INICIO_ALEATORIO: 3, // primera pregunta: elegir al azar entre las N mejores
     GANANCIA_MIN: 0.02, // bits: por debajo, la mejor pregunta ya aporta muy poco
     TOLERANCIA_EMPATE: 0.015, // bits: candidatas consideradas empatadas
     LAMBDA: 1 // sin olvido: diagnóstico de sesión corta
   };
 
-  const N = HIPOTESIS.length;
+  const N = FACTORES.length;
+  const CATEGORIAS = Array.from(new Set(BANCO.map(function (q) { return q.categoria; })));
 
-  // Umbral de entropía derivado de P_MIN (fórmula de la especificación).
+  function acotarProbabilidad(x) {
+    return Math.min(0.98, Math.max(0.02, x));
+  }
+
+  function logit(p) {
+    return Math.log(p / (1 - p));
+  }
+
+  function sigmoide(x) {
+    return 1 / (1 + Math.exp(-x));
+  }
+
+  function interseccion(a, b) {
+    const setB = new Set(b);
+    return a.filter(function (x) { return setB.has(x); });
+  }
+
+  function inferirFactoresOpcion(opcion) {
+    const texto = ((opcion.fb || '') + ' ' + (opcion.t || '')).toLowerCase();
+    const factores = [];
+    if (
+      /como si fueran enteros|como enteros|25 con 5|21 > 3|9 es mayor que 1|80 parece mayor que 8|375 parece grande|425 es el entero más grande|405 > 45 > 5|25 parece más que 5|2 < 7 < 15/.test(texto)
+    ) factores.push('largo');
+    if (
+      /tener más cifras decimales no hace el número más pequeño|tener menos cifras no hace mayor|más cifras no significa más pequeño|más cifras no significa mayor|menos cifras no hace mayor|más cifras no significa más valor/.test(texto)
+    ) factores.push('corto');
+    if (
+      /cero después de la coma|cero va justo después de la coma|0,05 no es 0,5|0,07|0,04|0,03|0,003|se ha leído como 0,7|no son iguales: el cero/.test(texto)
+    ) factores.push('cero');
+    return factores;
+  }
+
+  function entropiaBinaria(p) {
+    if (p <= 0 || p >= 1) return 0;
+    return -p * Math.log2(p) - (1 - p) * Math.log2(1 - p);
+  }
+
+  function generarPerfiles() {
+    const perfiles = [];
+    const total = 1 << N;
+    for (let mascara = 0; mascara < total; mascara++) {
+      const presentes = FACTORES.filter(function (_, i) {
+        return Boolean(mascara & (1 << i));
+      });
+      perfiles.push({
+        indice: mascara,
+        mascara: mascara,
+        presentes: presentes,
+        ids: presentes.map(function (f) { return f.id; }),
+        etiqueta: presentes.length
+          ? presentes.map(function (f) { return f.id; }).join('+')
+          : 'sin-fallos'
+      });
+    }
+    return perfiles;
+  }
+
+  const PERFILES = generarPerfiles();
+  const PERFIL_POR_ETIQUETA = {};
+  const ORDEN_FACTOR = {};
+  FACTORES.forEach(function (factor, indice) {
+    ORDEN_FACTOR[factor.id] = indice;
+  });
+  PERFILES.forEach(function (perfil) {
+    PERFIL_POR_ETIQUETA[perfil.etiqueta] = perfil;
+  });
+
+  function perfilDesdeIds(ids) {
+    const etiqueta = ids && ids.length
+      ? ids.slice().sort(function (a, b) {
+        return ORDEN_FACTOR[a] - ORDEN_FACTOR[b];
+      }).join('+')
+      : 'sin-fallos';
+    return PERFIL_POR_ETIQUETA[etiqueta];
+  }
+
+  BANCO.forEach(function (q) {
+    const base = acotarProbabilidad(q.L[0]);
+    q.base = base;
+    q.opciones.forEach(function (opcion, indice) {
+      opcion.factores = indice === q.correcta ? [] : inferirFactoresOpcion(opcion);
+    });
+    q.factores = FACTORES.map(function (f) {
+      const pSolo = acotarProbabilidad(q.L[f.indiceHipotesis]);
+      const penalizacion = Math.max(0, logit(base) - logit(pSolo));
+      return {
+        id: f.id,
+        pSolo: pSolo,
+        penalizacion: penalizacion
+      };
+    });
+    q.pPerfiles = PERFILES.map(function (perfil) {
+      const penalizacionTotal = perfil.presentes.reduce(function (suma, factor) {
+        const modeloFactor = q.factores.find(function (x) { return x.id === factor.id; });
+        return suma + modeloFactor.penalizacion;
+      }, 0);
+      return acotarProbabilidad(sigmoide(logit(base) - penalizacionTotal));
+    });
+    q.pOpcionesPerfiles = PERFILES.map(function (perfil, indicePerfil) {
+      const pCorrecta = q.pPerfiles[indicePerfil];
+      const pesos = q.opciones.map(function (opcion, indiceOpcion) {
+        if (indiceOpcion === q.correcta) return 0;
+        if (!opcion.factores.length) return 1;
+        const solape = interseccion(
+          opcion.factores,
+          perfil.ids
+        ).length;
+        if (solape === opcion.factores.length) return 5 + 2 * (solape - 1);
+        if (solape > 0) return 2.5;
+        return 0.6;
+      });
+      const sumaPesos = pesos.reduce(function (a, b) { return a + b; }, 0);
+      return q.opciones.map(function (_, indiceOpcion) {
+        if (indiceOpcion === q.correcta) return pCorrecta;
+        return (1 - pCorrecta) * pesos[indiceOpcion] / sumaPesos;
+      });
+    });
+  });
+
+  // Umbral máximo de entropía marginal cuando todos los factores quedan
+  // decididos con la confianza mínima exigida.
   const H_STOP = (function () {
     const p = PARAMETROS.P_MIN;
-    return -p * Math.log2(p) - (1 - p) * Math.log2((1 - p) / (N - 1));
+    return N * entropiaBinaria(p);
   })();
 
   /* ------------------------------------------------------------------ */
   /* Motor bayesiano.                                                    */
   /* ------------------------------------------------------------------ */
 
-  function priorUniforme() {
-    return new Array(N).fill(1 / N);
+  function priorPerfiles() {
+    const prior = PERFILES.map(function (perfil) {
+      return FACTORES.reduce(function (peso, _, i) {
+        const presente = Boolean(perfil.mascara & (1 << i));
+        return peso * (presente ? PARAMETROS.PRIOR_ERROR : (1 - PARAMETROS.PRIOR_ERROR));
+      }, 1);
+    });
+    const suma = prior.reduce(function (a, b) { return a + b; }, 0);
+    return prior.map(function (x) { return x / suma; });
   }
 
-  function entropia(p) {
-    let h = 0;
-    for (const pi of p) {
-      if (pi > 0) h -= pi * Math.log2(pi);
-    }
-    return h;
+  function marginalesFactores(distribucion) {
+    return FACTORES.map(function (_, i) {
+      return distribucion.reduce(function (suma, piPerfil, indicePerfil) {
+        return suma + (Boolean(PERFILES[indicePerfil].mascara & (1 << i)) ? piPerfil : 0);
+      }, 0);
+    });
   }
 
-  // Posterior tras observar acierto (true) o fallo (false) en la pregunta q.
-  function actualizar(p, q, acierto) {
-    const post = p.map(function (pi, i) {
-      const li = acierto ? q.L[i] : 1 - q.L[i];
-      return pi * li;
+  function entropia(distribucion) {
+    return marginalesFactores(distribucion).reduce(function (h, pi) {
+      return h + entropiaBinaria(pi);
+    }, 0);
+  }
+
+  // Posterior sobre los perfiles completos tras observar la opción elegida.
+  function actualizar(distribucion, q, indiceOpcion) {
+    const post = distribucion.map(function (piPerfil, indicePerfil) {
+      const verosimilitud = q.pOpcionesPerfiles[indicePerfil][indiceOpcion];
+      return piPerfil * verosimilitud;
     });
     const suma = post.reduce(function (a, b) { return a + b; }, 0);
     return post.map(function (x) { return x / suma; });
   }
 
-  // Ganancia esperada de información (bits) si se plantea la pregunta q.
-  function gananciaEsperada(p, q) {
-    let pAcierto = 0;
-    for (let i = 0; i < N; i++) pAcierto += p[i] * q.L[i];
-    const postAcierto = actualizar(p, q, true);
-    const postFallo = actualizar(p, q, false);
-    const hEsperada =
-      pAcierto * entropia(postAcierto) + (1 - pAcierto) * entropia(postFallo);
-    return entropia(p) - hEsperada;
+  function probOpcionPregunta(distribucion, q, indiceOpcion) {
+    return distribucion.reduce(function (suma, piPerfil, indicePerfil) {
+      return suma + piPerfil * q.pOpcionesPerfiles[indicePerfil][indiceOpcion];
+    }, 0);
+  }
+
+  // Ganancia esperada de información total (bits marginales) si se plantea q.
+  function gananciaEsperada(distribucion, q) {
+    const hActual = entropia(distribucion);
+    const hEsperada = q.opciones.reduce(function (suma, _, indiceOpcion) {
+      const prob = probOpcionPregunta(distribucion, q, indiceOpcion);
+      return suma + prob * entropia(actualizar(distribucion, q, indiceOpcion));
+    }, 0);
+    return hActual - hEsperada;
   }
 
   /*
@@ -550,9 +711,30 @@
    */
   function seleccionarSiguiente(p, restantes, usoCategorias, rng) {
     if (restantes.length === 0) return null;
+    const categoriasPendientes = CATEGORIAS.filter(function (categoria) {
+      return (usoCategorias[categoria] || 0) < PARAMETROS.MIN_POR_CATEGORIA;
+    });
+    if (categoriasPendientes.length) {
+      const pendientes = restantes.filter(function (q) {
+        return categoriasPendientes.indexOf(q.categoria) >= 0;
+      });
+      if (pendientes.length) restantes = pendientes;
+    }
     const ganancias = restantes.map(function (q) {
       return gananciaEsperada(p, q);
     });
+    const totalUsadas = CATEGORIAS.reduce(function (suma, categoria) {
+      return suma + (usoCategorias[categoria] || 0);
+    }, 0);
+    if (totalUsadas === 0) {
+      const rankingInicial = restantes.map(function (q, i) {
+        return { q: q, ganancia: ganancias[i] };
+      }).sort(function (a, b) {
+        return b.ganancia - a.ganancia;
+      });
+      const n = Math.min(PARAMETROS.N_INICIO_ALEATORIO, rankingInicial.length);
+      return rankingInicial[Math.floor(rng() * n)].q;
+    }
     const maxima = Math.max.apply(null, ganancias);
     let candidatas = restantes.filter(function (_, i) {
       return ganancias[i] >= maxima - PARAMETROS.TOLERANCIA_EMPATE;
@@ -563,16 +745,23 @@
     return candidatas[Math.floor(rng() * candidatas.length)];
   }
 
+  function coberturaCategoriasSuficiente(usoCategorias) {
+    return CATEGORIAS.every(function (categoria) {
+      return (usoCategorias[categoria] || 0) >= PARAMETROS.MIN_POR_CATEGORIA;
+    });
+  }
+
   /*
    * Criterio de parada. Devuelve { parar, firme, motivo }.
-   * Cierre firme solo si H <= H_STOP y max(p) >= P_MIN; cualquier otro
-   * cierre (máximo alcanzado, banco agotado, utilidad marginal baja sin
-   * cumplir criterios) se marca como provisional.
+   * Cierre firme solo si todos los factores quedan clasificados como
+   * presentes o ausentes con la confianza exigida.
    */
-  function evaluarParada(p, numRespondidas, restantes) {
-    const h = entropia(p);
-    const maxP = Math.max.apply(null, p);
-    const criterios = h <= H_STOP && maxP >= PARAMETROS.P_MIN;
+  function evaluarParada(distribucion, numRespondidas, restantes, usoCategorias) {
+    const perfil = evaluarPerfil(distribucion);
+    const coberturaOK = coberturaCategoriasSuficiente(usoCategorias || {});
+    const criterios = perfil.resuelto &&
+      perfil.confianzaMin >= PARAMETROS.P_MIN &&
+      coberturaOK;
 
     if (numRespondidas >= PARAMETROS.N_MIN && criterios) {
       return { parar: true, firme: true, motivo: 'confianza suficiente' };
@@ -583,15 +772,71 @@
     if (numRespondidas >= PARAMETROS.N_MAX) {
       return { parar: true, firme: criterios, motivo: 'máximo de preguntas alcanzado' };
     }
-    if (numRespondidas >= PARAMETROS.N_MIN) {
+    if (numRespondidas >= PARAMETROS.N_MIN && coberturaOK) {
       const mejor = Math.max.apply(null, restantes.map(function (q) {
-        return gananciaEsperada(p, q);
+        return gananciaEsperada(distribucion, q);
       }));
       if (mejor < PARAMETROS.GANANCIA_MIN) {
         return { parar: true, firme: criterios, motivo: 'las preguntas restantes aportan muy poca información' };
       }
     }
     return { parar: false, firme: false, motivo: '' };
+  }
+
+  function evaluarPerfil(distribucion) {
+    const marginales = marginalesFactores(distribucion);
+    const detalles = FACTORES.map(function (f, i) {
+      const prob = marginales[i];
+      const confianza = Math.max(prob, 1 - prob);
+      let estado = 'indeterminado';
+      if (prob >= PARAMETROS.P_MIN) estado = 'presente';
+      if (prob <= 1 - PARAMETROS.P_MIN) estado = 'ausente';
+      return {
+        factor: f,
+        prob: prob,
+        confianza: confianza,
+        estado: estado
+      };
+    });
+
+    return {
+      detalles: detalles,
+      presentes: detalles.filter(function (d) { return d.estado === 'presente'; }),
+      ausentes: detalles.filter(function (d) { return d.estado === 'ausente'; }),
+      indeterminados: detalles.filter(function (d) { return d.estado === 'indeterminado'; }),
+      numeroPresentes: detalles.filter(function (d) { return d.estado === 'presente'; }).length,
+      resuelto: detalles.every(function (d) { return d.estado !== 'indeterminado'; }),
+      confianzaMin: Math.min.apply(null, detalles.map(function (d) { return d.confianza; }))
+    };
+  }
+
+  function probAciertoPerfil(q, presentesIds) {
+    const perfil = perfilDesdeIds(presentesIds || []);
+    return q.pPerfiles[perfil.indice];
+  }
+
+  function muestrearRespuestaPerfil(q, presentesIds, rng) {
+    const perfil = perfilDesdeIds(presentesIds || []);
+    const probs = q.pOpcionesPerfiles[perfil.indice];
+    const u = rng();
+    let acumulada = 0;
+    for (let i = 0; i < probs.length; i++) {
+      acumulada += probs[i];
+      if (u <= acumulada) return i;
+    }
+    return probs.length - 1;
+  }
+
+  function perfilMAP(distribucion) {
+    let mejor = 0;
+    for (let i = 1; i < distribucion.length; i++) {
+      if (distribucion[i] > distribucion[mejor]) mejor = i;
+    }
+    return PERFILES[mejor];
+  }
+
+  function confianzaVeredicto(distribucion) {
+    return evaluarPerfil(distribucion).confianzaMin;
   }
 
   function indiceMAP(p) {
@@ -602,15 +847,25 @@
 
   return {
     HIPOTESIS: HIPOTESIS,
+    FACTORES: FACTORES,
+    CATEGORIAS: CATEGORIAS,
+    PERFILES: PERFILES,
     BANCO: BANCO,
     PARAMETROS: PARAMETROS,
     H_STOP: H_STOP,
-    priorUniforme: priorUniforme,
+    priorPerfiles: priorPerfiles,
+    marginalesFactores: marginalesFactores,
     entropia: entropia,
     actualizar: actualizar,
     gananciaEsperada: gananciaEsperada,
     seleccionarSiguiente: seleccionarSiguiente,
+    coberturaCategoriasSuficiente: coberturaCategoriasSuficiente,
     evaluarParada: evaluarParada,
+    evaluarPerfil: evaluarPerfil,
+    probAciertoPerfil: probAciertoPerfil,
+    muestrearRespuestaPerfil: muestrearRespuestaPerfil,
+    perfilMAP: perfilMAP,
+    confianzaVeredicto: confianzaVeredicto,
     indiceMAP: indiceMAP
   };
 });

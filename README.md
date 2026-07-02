@@ -1,6 +1,6 @@
-# Diagnóstico bayesiano con hipótesis nominales
+# Diagnóstico bayesiano multifactorial
 
-Ejemplo de la [metodología de recursos adaptativos bayesianos](https://jjdeharo.github.io/recursos-adaptativos/) para el caso de **hipótesis no jerárquicas (nominales)**: errores conceptuales alternativos, sin orden entre ellos, en lugar de niveles ordenados de dominio.
+Ejemplo de la [metodología de recursos adaptativos bayesianos](https://jjdeharo.github.io/recursos-adaptativos/) adaptado a un diagnóstico **multifactorial**: el sistema estima por separado la presencia o ausencia de varios errores conceptuales, de modo que un alumno puede mostrar más de un fallo a la vez.
 
 Acceso: **https://jjdeharo.github.io/bayes-nominal/**
 
@@ -8,9 +8,9 @@ Acceso: **https://jjdeharo.github.io/bayes-nominal/**
 
 ## Qué diagnostica
 
-El recurso plantea preguntas sobre comparación de números decimales y mantiene una distribución de probabilidad sobre cuatro hipótesis que explican el comportamiento del alumno. Son errores bien documentados en la investigación en didáctica de las matemáticas y **no admiten orden**: ninguno es «más nivel» que otro.
+El recurso plantea preguntas sobre comparación de números decimales y mantiene una probabilidad independiente para cada uno de estos tres errores bien documentados en la investigación en didáctica de las matemáticas:
 
-| Hipótesis | Comportamiento característico |
+| Factor | Comportamiento característico |
 |---|---|
 | Dominio del orden decimal | Compara correctamente por valor posicional |
 | Regla del número entero («más cifras, mayor») | Cree que 0,25 > 0,7 porque 25 > 7 |
@@ -22,10 +22,10 @@ El recurso plantea preguntas sobre comparación de números decimales y mantiene
 Siguiendo la [especificación operativa](https://jjdeharo.github.io/recursos-adaptativos/) para hipótesis no jerárquicas:
 
 - **No se usa IRT logística** (3PL): esa función exige valores `theta` ordenados que aquí no tienen sentido.
-- Cada pregunta lleva un **vector de verosimilitudes** `P(acierto | H_i, q)`, una por hipótesis, asignado por tramos: ≈0,9 si el error no interfiere en la pregunta; ≈0,4–0,6 si la afecta parcialmente; ≈0,15–0,25 si un distractor concreto captura activamente ese error (el alumno es atraído hacia esa opción equivocada).
-- El diagnóstico final **no calcula una `theta` esperada** (no existe sin orden): reporta la hipótesis de **máxima probabilidad posterior (MAP)** con su probabilidad como confianza, y muestra siempre la distribución posterior completa.
+- Cada pregunta reutiliza el banco calibrado del modelo anterior, pero ahora se convierte en un modelo exacto sobre los `2^3 = 8` perfiles posibles. Para actualizar no se usa solo acierto/fallo: también cuenta **qué distractor** ha elegido el alumno.
+- El diagnóstico final devuelve un **perfil de 0 a 3 fallos detectados**. El cierre es firme solo si todos los errores quedan clasificados como presentes o ausentes con la confianza exigida.
 
-Todo lo demás es la maquinaria general de la metodología: prior uniforme, actualización bayesiana tras cada respuesta, selección de la siguiente pregunta por **máxima ganancia esperada de información** (con empates aleatorizados que favorecen las categorías menos repetidas) y criterio de parada por entropía (`H ≤ H_stop`) y confianza (`max p ≥ 0,80`), con mínimo de 5 preguntas y máximo práctico de 12. Los cierres que no cumplen ambos criterios se presentan como **provisionales**. Al ser un diagnóstico de sesión corta, no se aplica olvido exponencial (`lambda = 1`).
+Todo lo demás es la maquinaria general de la metodología: prior del 25 % para cada error, actualización bayesiana tras cada respuesta, selección de la siguiente pregunta por **máxima ganancia esperada de información** (con una primera pregunta elegida al azar entre las mejores y forzando después la cobertura mínima de categorías) y criterio de parada por entropía total (`H ≤ H_stop`), clasificación de cada factor con al menos un 80 % de confianza y un mínimo de `2` preguntas por categoría, con mínimo de 5 preguntas y máximo práctico de 12. Los cierres que no cumplen ambos criterios se presentan como **provisionales**. Al ser un diagnóstico de sesión corta, no se aplica olvido exponencial (`lambda = 1`).
 
 ## Archivos
 
@@ -41,14 +41,14 @@ El recurso funciona sin servidor: basta abrir `index.html` en un navegador (con 
 
 ## Validación del diseño (herramienta del autor)
 
-`validacion.js` comprueba la **separabilidad del diseño**: genera respondentes sintéticos que se comportan según cada hipótesis, les pasa el mismo test adaptativo con el mismo criterio de parada y construye la matriz de confusión. Es una herramienta del creador del recurso — no forma parte del material del alumno.
+`validacion.js` comprueba el **comportamiento del diseño multifactorial**: genera respondentes sintéticos con perfiles de errores distintos, les pasa el mismo test adaptativo con el mismo criterio de parada y construye la matriz de confusión. Es una herramienta del creador del recurso, no forma parte del material del alumno.
 
 ```bash
-node validacion.js            # 1000 simulaciones por hipótesis
+node validacion.js            # 1000 simulaciones por perfil
 node validacion.js 5000 42    # simulaciones y semilla
 ```
 
-Resultado con el banco actual de 24 preguntas (1000 simulaciones por hipótesis, semilla 42): **94,3 % de exactitud global**, sesiones de 5,3–5,5 preguntas de media y más del 99 % de cierres firmes. La matriz mide la fiabilidad *bajo el modelo* (los respondentes salen del propio modelo): indica si el banco discrimina las hipótesis, no si los parámetros reflejan la realidad.
+Con la implantación actual del modelo multifactorial y actualización por distractor, una simulación `node validacion.js 500 42` da **80,5 % de exactitud global** y más del **94 % de cierres firmes** en todos los perfiles. Las cifras históricas del modelo antiguo ya no son comparables, porque ahora la tarea es reconstruir perfiles con varios errores simultáneos.
 
 ## Licencias
 
