@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Cómo comparas los decimales? · Diagnóstico bayesiano con hipótesis nominales</title>
+<meta name="description" content="Recurso adaptativo bayesiano de ejemplo: diagnóstico de errores conceptuales (hipótesis nominales, sin orden) al comparar números decimales.">
+<style>
+  :root {
+    --plano: #f9f9f7;
+    --superficie: #fcfcfb;
+    --tinta-1: #0b0b0b;
+    --tinta-2: #52514e;
+    --tinta-suave: #898781;
+    --linea: #e1e0d9;
+    --eje: #c3c2b7;
+    --borde: rgba(11, 11, 11, 0.10);
+    --serie: #2a78d6;
+    --serie-pista: #cde2fb;
+    --ok: #006300;
+    --ok-marca: #0ca30c;
+    --mal: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --plano: #0d0d0d;
+      --superficie: #1a1a19;
+      --tinta-1: #ffffff;
+      --tinta-2: #c3c2b7;
+      --tinta-suave: #898781;
+      --linea: #2c2c2a;
+      --eje: #383835;
+      --borde: rgba(255, 255, 255, 0.10);
+      --serie: #3987e5;
+      --serie-pista: #184f95;
+      --ok: #0ca30c;
+      --ok-marca: #0ca30c;
+      --mal: #e66767;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--plano);
+    color: var(--tinta-1);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .contenedor {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  /* ---------- Cabecera ---------- */
+
+  header { margin: 1.5rem 0 2rem; }
+
+  .antetitulo {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+    margin: 0 0 0.5rem;
+  }
+
+  h1 {
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    font-size: clamp(1.9rem, 5vw, 2.7rem);
+    font-weight: 600;
+    line-height: 1.15;
+    margin: 0 0 0.5rem;
+  }
+
+  .subtitulo { color: var(--tinta-2); margin: 0; max-width: 36rem; }
+
+  /* ---------- La recta 0→1 (progreso) ---------- */
+
+  .recta {
+    margin: 2rem 0 0.35rem;
+    position: relative;
+    height: 26px;
+  }
+  .recta .linea-base {
+    position: absolute;
+    left: 0; right: 0; top: 12px;
+    border-top: 1px solid var(--eje);
+  }
+  .recta .marca-tick {
+    position: absolute;
+    top: 8px;
+    width: 1px;
+    height: 9px;
+    background: var(--eje);
+  }
+  .recta .marca-tick.mayor { top: 5px; height: 15px; }
+  .recta .cursor {
+    position: absolute;
+    top: 8px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--serie);
+    border: 2px solid var(--superficie);
+    transform: translateX(-50%);
+    transition: left 0.4s ease;
+  }
+  .recta-pie {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--tinta-suave);
+    font-variant-numeric: tabular-nums;
+  }
+  .recta-estado {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--tinta-2);
+    margin: 0.5rem 0 1.25rem;
+  }
+
+  /* ---------- Tarjetas ---------- */
+
+  .tarjeta {
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .chip {
+    display: inline-block;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+    border: 1px solid var(--linea);
+    border-radius: 999px;
+    padding: 0.15rem 0.65rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .enunciado {
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0 0 1.25rem;
+  }
+
+  /* ---------- Opciones ---------- */
+
+  .opciones { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+
+  .opcion {
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: var(--tinta-1);
+    background: var(--superficie);
+    border: 1px solid var(--eje);
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  .opcion:hover:not(:disabled) { border-color: var(--serie); }
+  .opcion:focus-visible { outline: 2px solid var(--serie); outline-offset: 2px; }
+  .opcion:disabled { cursor: default; color: var(--tinta-2); }
+  .opcion.elegida-ok { border-color: var(--ok-marca); background: color-mix(in srgb, var(--ok-marca) 8%, var(--superficie)); color: var(--tinta-1); }
+  .opcion.elegida-mal { border-color: var(--mal); background: color-mix(in srgb, var(--mal) 8%, var(--superficie)); color: var(--tinta-1); }
+  .opcion.es-correcta { border-color: var(--ok-marca); color: var(--tinta-1); }
+
+  .marca-opcion { font-weight: 700; margin-right: 0.4rem; }
+  .marca-opcion.ok { color: var(--ok); }
+  .marca-opcion.mal { color: var(--mal); }
+
+  /* ---------- Retroalimentación ---------- */
+
+  .retro {
+    border-left: 3px solid var(--eje);
+    padding: 0.2rem 0 0.2rem 1rem;
+    margin: 1.25rem 0 0;
+    color: var(--tinta-2);
+  }
+  .retro .veredicto { font-weight: 700; color: var(--tinta-1); }
+  .retro .veredicto.ok { color: var(--ok); }
+  .retro .veredicto.mal { color: var(--mal); }
+  .retro p { margin: 0.35rem 0 0; }
+
+  /* ---------- Botones ---------- */
+
+  .boton {
+    font: inherit;
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--serie);
+    border: none;
+    border-radius: 8px;
+    padding: 0.65rem 1.5rem;
+    cursor: pointer;
+    margin-top: 1.25rem;
+  }
+  .boton:hover { filter: brightness(0.93); }
+  .boton:focus-visible { outline: 2px solid var(--tinta-1); outline-offset: 2px; }
+
+  .boton-secundario {
+    font: inherit;
+    color: var(--tinta-2);
+    background: none;
+    border: 1px solid var(--eje);
+    border-radius: 8px;
+    padding: 0.65rem 1.5rem;
+    cursor: pointer;
+    margin-top: 1.25rem;
+  }
+  .boton-secundario:hover { border-color: var(--tinta-2); }
+  .boton-secundario:focus-visible { outline: 2px solid var(--serie); outline-offset: 2px; }
+
+  /* ---------- Gráfico de barras del posterior ---------- */
+
+  .grafico { display: grid; gap: 0.55rem; margin: 0.75rem 0; }
+  .grafico .fila {
+    display: grid;
+    grid-template-columns: 13rem 1fr 3.2rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  @media (max-width: 540px) {
+    .grafico .fila { grid-template-columns: 9.5rem 1fr 3.2rem; }
+  }
+  .grafico .etiqueta { font-size: 0.85rem; color: var(--tinta-2); }
+  .grafico .fila.map .etiqueta { color: var(--tinta-1); font-weight: 700; }
+  .grafico .pista {
+    border-left: 1px solid var(--eje);
+    height: 20px;
+    display: flex;
+    align-items: center;
+  }
+  .grafico .barra {
+    height: 100%;
+    background: var(--serie);
+    border-radius: 0 4px 4px 0;
+    transition: width 0.4s ease;
+    min-width: 2px;
+  }
+  .grafico .valor {
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--tinta-2);
+    text-align: right;
+  }
+  .grafico .fila.map .valor { color: var(--tinta-1); font-weight: 700; }
+
+  /* ---------- Panel del estado bayesiano ---------- */
+
+  details.panel-estado {
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    background: var(--superficie);
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  details.panel-estado summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--tinta-2);
+  }
+  details.panel-estado summary:focus-visible { outline: 2px solid var(--serie); outline-offset: 2px; }
+  .dato-estado {
+    font-size: 0.85rem;
+    color: var(--tinta-suave);
+    font-variant-numeric: tabular-nums;
+    margin: 0.5rem 0 0.25rem;
+  }
+  .nota-panel { font-size: 0.8rem; color: var(--tinta-suave); margin: 0.5rem 0 0.25rem; }
+
+  /* ---------- Resultado ---------- */
+
+  .insignia {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.2rem 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .insignia.firme { color: var(--ok); border: 1px solid var(--ok-marca); }
+  .insignia.provisional { color: var(--tinta-2); border: 1px solid var(--eje); }
+
+  .diagnostico-nombre {
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+  }
+
+  .confianza {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 1rem 0 0.25rem;
+  }
+  .confianza .cifra {
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .confianza .etiqueta-cifra { color: var(--tinta-suave); font-size: 0.9rem; }
+
+  h2 {
+    font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 1.75rem 0 0.5rem;
+  }
+  .tarjeta > h2:first-child { margin-top: 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.45rem 0.5rem;
+    border-bottom: 1px solid var(--linea);
+    font-variant-numeric: tabular-nums;
+  }
+  th { color: var(--tinta-suave); font-weight: 600; font-size: 0.8rem; }
+  td.numero { text-align: right; }
+  th.numero { text-align: right; }
+
+  .aviso-provisional {
+    border-left: 3px solid var(--eje);
+    padding-left: 1rem;
+    color: var(--tinta-2);
+    font-size: 0.9rem;
+  }
+
+  .nota-grafico {
+    font-size: 0.9rem;
+    color: var(--tinta-2);
+    margin: 0.25rem 0 0.9rem;
+  }
+
+  details.tecnica { margin-top: 0.75rem; }
+  details.tecnica summary {
+    cursor: pointer;
+    color: var(--tinta-suave);
+    font-size: 0.85rem;
+  }
+  details.tecnica summary:focus-visible { outline: 2px solid var(--serie); outline-offset: 2px; }
+
+  details.recorrido summary { cursor: pointer; color: var(--tinta-2); }
+  details.recorrido { margin-top: 1.25rem; }
+  details.recorrido ol { padding-left: 1.25rem; color: var(--tinta-2); font-size: 0.9rem; }
+  details.recorrido li { margin: 0.3rem 0; }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--linea);
+    font-size: 0.8rem;
+    color: var(--tinta-suave);
+  }
+  footer a { color: var(--tinta-2); }
+
+  .oculto { display: none; }
+
+  ul.lista-hipotesis { padding-left: 1.25rem; color: var(--tinta-2); }
+  ul.lista-hipotesis li { margin: 0.4rem 0; }
+  ul.lista-hipotesis strong { color: var(--tinta-1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .grafico .barra, .recta .cursor { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="contenedor">
+
+  <header>
+    <p class="antetitulo">Recurso adaptativo bayesiano · hipótesis nominales</p>
+    <h1>¿Cómo comparas los decimales?</h1>
+    <p class="subtitulo">Este recurso busca averiguar <em>cómo</em> comparas los números
+    decimales y, si te equivocas, descubrir exactamente en qué consiste tu error para poder
+    corregirlo. No es un examen y no hay nota.</p>
+  </header>
+
+  <!-- La recta 0→1: el progreso de la sesión dibujado sobre el propio objeto de estudio -->
+  <div id="zona-recta" class="oculto">
+    <div class="recta" id="recta" aria-hidden="true"></div>
+    <div class="recta-pie"><span>0</span><span>0,5</span><span>1</span></div>
+    <p class="recta-estado" id="recta-estado"></p>
+  </div>
+
+  <!-- Pantalla de inicio -->
+  <section id="pantalla-inicio" class="tarjeta">
+    <h2>Qué hace este recurso</h2>
+    <p>Hay una manera correcta de comparar decimales y tres errores muy frecuentes
+    (por ejemplo, creer que 0,25 &gt; 0,7 porque 25 &gt; 7). Este recurso te hace unas
+    pocas preguntas y, según lo que respondas, va eligiendo la siguiente para
+    identificar cuál de esas cuatro maneras es la tuya.</p>
+    <p>La ayuda que recibirás:</p>
+    <ul style="color: var(--tinta-2); padding-left: 1.25rem;">
+      <li>después de cada pregunta, una explicación breve de la respuesta;</li>
+      <li>al final, un informe que te dice si comparas bien o, si no, cuál es
+      exactamente tu error y con qué seguridad lo afirma;</li>
+      <li>y una recomendación concreta de qué practicar para corregirlo.</li>
+    </ul>
+    <p>Responde con calma. El recurso termina solo, cuando ya tiene una idea clara:
+    normalmente entre 5 y 12 preguntas.</p>
+    <details>
+      <summary style="cursor:pointer; color: var(--tinta-2);">Información para docentes</summary>
+      <p style="color: var(--tinta-2);">Este recurso es un ejemplo de la
+      <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
+      con <strong>hipótesis nominales</strong> (no jerárquicas): en lugar de estimar un nivel ordenado,
+      mantiene una distribución de probabilidad sobre cuatro explicaciones alternativas del comportamiento
+      del alumno, sin orden entre ellas:</p>
+      <ul class="lista-hipotesis">
+        <li><strong>Dominio del orden decimal</strong>: compara correctamente.</li>
+        <li><strong>Regla del número entero</strong>: «más cifras, mayor» (0,25 &gt; 0,7 porque 25 &gt; 7).</li>
+        <li><strong>Regla de la fracción</strong>: «menos cifras, mayor» (0,3 &gt; 0,45).</li>
+        <li><strong>Cero invisible</strong>: ignora los ceros tras la coma (lee 0,07 como 0,7).</li>
+      </ul>
+      <p style="color: var(--tinta-2);">Cada pregunta lleva un vector de verosimilitudes
+      P(acierto&nbsp;|&nbsp;H<sub>i</sub>) — no se usa IRT logística, que exige orden —, la siguiente pregunta se elige por
+      máxima ganancia esperada de información y el diagnóstico final es la hipótesis de máxima probabilidad
+      posterior (MAP) con su confianza. Durante la sesión puedes abrir el panel «Ver el estado bayesiano».</p>
+    </details>
+    <button class="boton" id="boton-empezar">Empezar</button>
+  </section>
+
+  <!-- Pantalla de pregunta -->
+  <section id="pantalla-pregunta" class="oculto">
+    <div class="tarjeta">
+      <span class="chip" id="chip-categoria"></span>
+      <p class="enunciado" id="enunciado"></p>
+      <ul class="opciones" id="opciones"></ul>
+      <div class="retro oculto" id="retro" aria-live="polite">
+        <span class="veredicto" id="veredicto"></span>
+        <p id="retro-especifica"></p>
+        <p id="retro-explicacion"></p>
+      </div>
+      <button class="boton oculto" id="boton-siguiente">Siguiente pregunta</button>
+    </div>
+
+    <details class="panel-estado" id="panel-estado">
+      <summary>Ver el estado bayesiano (para docentes)</summary>
+      <div class="grafico" id="grafico-estado"></div>
+      <p class="dato-estado" id="dato-entropia"></p>
+      <p class="nota-panel">Las barras muestran la seguridad actual del sistema en cada una de las
+      cuatro maneras de comparar decimales que considera (una correcta y tres errores frecuentes;
+      suman el 100 %) y cambian con cada respuesta. El diagnóstico se cierra en firme cuando la
+      entropía baja del umbral y la hipótesis más probable supera el 80 %.</p>
+    </details>
+  </section>
+
+  <!-- Pantalla final -->
+  <section id="pantalla-final" class="oculto">
+    <div class="tarjeta">
+      <span class="insignia" id="insignia"></span>
+      <p class="antetitulo">Resultado</p>
+      <p style="color: var(--tinta-2); margin: 0 0 0.25rem;" id="frase-resultado"></p>
+      <p class="diagnostico-nombre" id="diagnostico-nombre"></p>
+      <p id="diagnostico-descripcion" style="color: var(--tinta-2);"></p>
+      <div class="confianza">
+        <span class="cifra" id="cifra-confianza"></span>
+        <span class="etiqueta-cifra">de seguridad en este resultado</span>
+      </div>
+      <p class="aviso-provisional oculto" id="aviso-provisional"></p>
+
+      <h2>Lo que se ha descartado</h2>
+      <p class="nota-grafico">El test buscaba cuál de estas cuatro maneras de comparar decimales
+      es la tuya: una correcta y tres errores frecuentes. Cada barra indica la seguridad del
+      sistema en cada posibilidad (entre las cuatro suman el 100 %). La barra larga, en negrita,
+      es el resultado; las barras cortas son las posibilidades descartadas.</p>
+      <div class="grafico" id="grafico-final"></div>
+      <p class="nota-panel" id="nota-parada"></p>
+      <details class="tecnica">
+        <summary>Detalles técnicos (para docentes)</summary>
+        <p class="nota-panel" id="nota-cierre"></p>
+      </details>
+
+      <h2>Resultados por categoría</h2>
+      <table>
+        <thead>
+          <tr><th>Categoría</th><th class="numero">Aciertos</th><th class="numero">Preguntas</th><th>Lectura</th></tr>
+        </thead>
+        <tbody id="tabla-categorias"></tbody>
+      </table>
+
+      <h2>Recomendación pedagógica</h2>
+      <p id="recomendacion" style="color: var(--tinta-2);"></p>
+      <h2>Siguiente paso</h2>
+      <p id="siguiente-paso" style="color: var(--tinta-2);"></p>
+
+      <details class="recorrido">
+        <summary>Recorrido de la sesión</summary>
+        <ol id="lista-recorrido"></ol>
+      </details>
+
+      <button class="boton-secundario" id="boton-repetir">Repetir el diagnóstico</button>
+    </div>
+  </section>
+
+  <footer>
+    <p>Ejemplo de hipótesis nominales de la
+    <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
+    · Juan José de Haro · Código <a href="https://www.gnu.org/licenses/agpl-3.0.html">AGPL-3.0</a>,
+    contenido <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">CC BY-SA 4.0</a>.</p>
+  </footer>
+
+</div>
+
+<script src="modelo.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const M = window.ModeloNominal;
+
+  /* ---------------- Estado de la sesión ---------------- */
+
+  let estado = null;
+
+  function nuevaSesion() {
+    estado = {
+      p: M.priorUniforme(),
+      restantes: M.BANCO.slice(),
+      usoCategorias: {},
+      recorrido: [], // { pregunta, acierto, opcionElegida }
+      porCategoria: {}, // categoria -> { intentos, aciertos }
+      preguntaActual: null,
+      cierre: null
+    };
+  }
+
+  /* ---------------- Utilidades de formato ---------------- */
+
+  function coma(x, decimales) {
+    return x.toFixed(decimales).replace('.', ',');
+  }
+
+  // Probabilidad en porcentaje legible: los usuarios entienden mejor
+  // «85 %» que «0,85». Los extremos se muestran como «<1 %» y «>99 %»
+  // porque el posterior nunca es exactamente 0 ni 1.
+  function porcentaje(x) {
+    const r = Math.round(x * 100);
+    if (r === 0 && x > 0.0005) return '<1 %';
+    if (r >= 100) return '>99 %';
+    return r + ' %';
+  }
+
+  function barajar(lista) {
+    const copia = lista.slice();
+    for (let i = copia.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = copia[i]; copia[i] = copia[j]; copia[j] = t;
+    }
+    return copia;
+  }
+
+  /* ---------------- Referencias al DOM ---------------- */
+
+  const $ = function (id) { return document.getElementById(id); };
+  const pantallas = {
+    inicio: $('pantalla-inicio'),
+    pregunta: $('pantalla-pregunta'),
+    final: $('pantalla-final')
+  };
+
+  function mostrarPantalla(nombre) {
+    Object.keys(pantallas).forEach(function (k) {
+      pantallas[k].classList.toggle('oculto', k !== nombre);
+    });
+    $('zona-recta').classList.toggle('oculto', nombre === 'inicio');
+  }
+
+  /* ---------------- La recta 0→1 de progreso ---------------- */
+
+  function construirRecta() {
+    const recta = $('recta');
+    recta.innerHTML = '<div class="linea-base"></div>';
+    for (let i = 0; i <= 10; i++) {
+      const tick = document.createElement('div');
+      tick.className = 'marca-tick' + (i % 5 === 0 ? ' mayor' : '');
+      tick.style.left = (i * 10) + '%';
+      recta.appendChild(tick);
+    }
+    const cursor = document.createElement('div');
+    cursor.className = 'cursor';
+    cursor.id = 'cursor-recta';
+    cursor.style.left = '0%';
+    recta.appendChild(cursor);
+  }
+
+  function actualizarRecta() {
+    const n = estado.recorrido.length;
+    const fraccion = Math.min(n / M.PARAMETROS.N_MAX, 1);
+    $('cursor-recta').style.left = (fraccion * 100) + '%';
+    const cerrando = estado.cierre && estado.cierre.parar;
+    $('recta-estado').textContent =
+      'Pregunta ' + (cerrando ? n : n + 1) +
+      ' · avance ' + coma(fraccion, 2) + ' de 1';
+  }
+
+  /* ---------------- Gráfico de barras del posterior ---------------- */
+
+  function pintarPosterior(contenedor, p) {
+    contenedor.innerHTML = '';
+    const iMap = M.indiceMAP(p);
+    M.HIPOTESIS.forEach(function (h, i) {
+      const fila = document.createElement('div');
+      fila.className = 'fila' + (i === iMap ? ' map' : '');
+      fila.title = h.nombre + ': ' + porcentaje(p[i]);
+
+      const etiqueta = document.createElement('span');
+      etiqueta.className = 'etiqueta';
+      etiqueta.textContent = h.corta;
+
+      const pista = document.createElement('div');
+      pista.className = 'pista';
+      const barra = document.createElement('div');
+      barra.className = 'barra';
+      barra.style.width = (p[i] * 100) + '%';
+      pista.appendChild(barra);
+
+      const valor = document.createElement('span');
+      valor.className = 'valor';
+      valor.textContent = porcentaje(p[i]);
+
+      fila.appendChild(etiqueta);
+      fila.appendChild(pista);
+      fila.appendChild(valor);
+      contenedor.appendChild(fila);
+    });
+  }
+
+  function actualizarPanelEstado() {
+    pintarPosterior($('grafico-estado'), estado.p);
+    $('dato-entropia').textContent =
+      'Entropía H = ' + coma(M.entropia(estado.p), 2) + ' bits · umbral de cierre H⋆ = ' +
+      coma(M.H_STOP, 2) + ' bits · preguntas respondidas: ' + estado.recorrido.length;
+  }
+
+  /* ---------------- Flujo de preguntas ---------------- */
+
+  function plantearSiguiente() {
+    const q = M.seleccionarSiguiente(estado.p, estado.restantes, estado.usoCategorias, Math.random);
+    estado.preguntaActual = q;
+    estado.cierre = null;
+
+    $('chip-categoria').textContent = q.categoria;
+    $('enunciado').textContent = q.texto;
+
+    const lista = $('opciones');
+    lista.innerHTML = '';
+    const orden = barajar(q.opciones.map(function (_, i) { return i; }));
+    orden.forEach(function (indiceOriginal) {
+      const li = document.createElement('li');
+      const boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'opcion';
+      boton.textContent = q.opciones[indiceOriginal].t;
+      boton.addEventListener('click', function () { responder(indiceOriginal, boton); });
+      li.appendChild(boton);
+      lista.appendChild(li);
+    });
+
+    $('retro').classList.add('oculto');
+    $('boton-siguiente').classList.add('oculto');
+    actualizarRecta();
+    actualizarPanelEstado();
+  }
+
+  function responder(indiceElegido, botonElegido) {
+    const q = estado.preguntaActual;
+    const acierto = indiceElegido === q.correcta;
+
+    // Actualización bayesiana: prior × verosimilitud, normalizado (modelo.js).
+    estado.p = M.actualizar(estado.p, q, acierto);
+
+    estado.restantes = estado.restantes.filter(function (x) { return x.id !== q.id; });
+    estado.usoCategorias[q.categoria] = (estado.usoCategorias[q.categoria] || 0) + 1;
+    if (!estado.porCategoria[q.categoria]) {
+      estado.porCategoria[q.categoria] = { intentos: 0, aciertos: 0 };
+    }
+    estado.porCategoria[q.categoria].intentos += 1;
+    if (acierto) estado.porCategoria[q.categoria].aciertos += 1;
+    estado.recorrido.push({
+      pregunta: q,
+      acierto: acierto,
+      opcionElegida: q.opciones[indiceElegido].t
+    });
+
+    // Marcar opciones y bloquearlas.
+    const botones = $('opciones').querySelectorAll('.opcion');
+    botones.forEach(function (b) {
+      b.disabled = true;
+      if (b === botonElegido) {
+        b.classList.add(acierto ? 'elegida-ok' : 'elegida-mal');
+        const marca = document.createElement('span');
+        marca.className = 'marca-opcion ' + (acierto ? 'ok' : 'mal');
+        marca.textContent = acierto ? '✓ ' : '✗ ';
+        b.prepend(marca);
+      } else if (!acierto && b.textContent === q.opciones[q.correcta].t) {
+        b.classList.add('es-correcta');
+      }
+    });
+
+    // Retroalimentación: veredicto + nota específica del distractor + explicación.
+    const veredicto = $('veredicto');
+    veredicto.textContent = acierto ? 'Correcto.' : 'No es así.';
+    veredicto.className = 'veredicto ' + (acierto ? 'ok' : 'mal');
+    const especifica = q.opciones[indiceElegido].fb;
+    $('retro-especifica').textContent = (!acierto && especifica) ? especifica : '';
+    $('retro-explicacion').textContent = q.explicacion;
+    $('retro').classList.remove('oculto');
+
+    // ¿Toca cerrar la sesión?
+    estado.cierre = M.evaluarParada(estado.p, estado.recorrido.length, estado.restantes);
+
+    actualizarRecta();
+    actualizarPanelEstado();
+    const boton = $('boton-siguiente');
+    boton.textContent = estado.cierre.parar ? 'Ver el diagnóstico' : 'Siguiente pregunta';
+    boton.classList.remove('oculto');
+    boton.focus();
+  }
+
+  /* ---------------- Pantalla final ---------------- */
+
+  function mostrarFinal() {
+    const p = estado.p;
+    const iMap = M.indiceMAP(p);
+    const h = M.HIPOTESIS[iMap];
+    const firme = estado.cierre.firme;
+
+    const insignia = $('insignia');
+    insignia.textContent = firme ? 'Diagnóstico firme' : 'Diagnóstico provisional';
+    insignia.className = 'insignia ' + (firme ? 'firme' : 'provisional');
+
+    // El resultado se enuncia como una afirmación directa: o un error
+    // concreto detectado, o la ausencia de errores.
+    if (h.tipo === 'error') {
+      $('frase-resultado').textContent = firme
+        ? 'Tus respuestas muestran un error concreto:'
+        : 'Tus respuestas apuntan a un error concreto:';
+    } else {
+      $('frase-resultado').textContent = firme
+        ? 'Tus respuestas no muestran ningún error:'
+        : 'Tus respuestas apuntan a que no hay ningún error:';
+    }
+    $('diagnostico-nombre').textContent = h.titular;
+    $('diagnostico-descripcion').textContent = h.descripcion;
+    $('cifra-confianza').textContent = porcentaje(p[iMap]);
+
+    const aviso = $('aviso-provisional');
+    if (!firme) {
+      aviso.textContent =
+        'El sistema no ha llegado al 80 % de seguridad que se exige para dar el resultado ' +
+        'por definitivo: toma este diagnóstico como una orientación, no como una conclusión. ' +
+        'Conviene repetirlo otro día o contrastarlo con una conversación con el alumno.';
+      aviso.classList.remove('oculto');
+    } else {
+      aviso.classList.add('oculto');
+    }
+
+    pintarPosterior($('grafico-final'), p);
+
+    // Explicación llana de por qué terminó la sesión.
+    const motivosLlanos = {
+      'confianza suficiente':
+        'porque ya tenía seguridad suficiente para dar un resultado',
+      'máximo de preguntas alcanzado':
+        'al llegar al máximo de ' + M.PARAMETROS.N_MAX + ' preguntas',
+      'banco agotado':
+        'porque no quedaban más preguntas',
+      'las preguntas restantes aportan muy poca información':
+        'porque las preguntas que quedaban ya apenas aportaban información nueva'
+    };
+    $('nota-parada').textContent =
+      'El recurso se ha detenido tras ' + estado.recorrido.length + ' preguntas ' +
+      (motivosLlanos[estado.cierre.motivo] || '(' + estado.cierre.motivo + ')') + '.';
+
+    $('nota-cierre').textContent =
+      'Hipótesis MAP: ' + h.nombre + '. Distribución posterior tras ' +
+      estado.recorrido.length +
+      ' actualizaciones bayesianas desde un prior uniforme (25 % por hipótesis). ' +
+      'Motivo de parada: ' + estado.cierre.motivo + ' · entropía final H = ' +
+      coma(M.entropia(p), 2) + ' bits (umbral de cierre H⋆ = ' + coma(M.H_STOP, 2) +
+      ') · confianza exigida para el cierre firme: max(p) ≥ 0,80.';
+
+    // Tabla por categoría, con exigencia de muestra mínima (2 intentos).
+    const cuerpo = $('tabla-categorias');
+    cuerpo.innerHTML = '';
+    Object.keys(estado.porCategoria).forEach(function (cat) {
+      const d = estado.porCategoria[cat];
+      const fila = document.createElement('tr');
+      let lectura;
+      if (d.intentos < 2) {
+        lectura = 'Pocas preguntas para valorar';
+      } else if (d.aciertos / d.intentos >= 0.75) {
+        lectura = 'Punto fuerte';
+      } else if (d.aciertos / d.intentos <= 0.4) {
+        lectura = 'Dificultad detectada';
+      } else {
+        lectura = 'Resultado intermedio';
+      }
+      fila.innerHTML =
+        '<td>' + cat + '</td>' +
+        '<td class="numero">' + d.aciertos + '</td>' +
+        '<td class="numero">' + d.intentos + '</td>' +
+        '<td>' + lectura + '</td>';
+      cuerpo.appendChild(fila);
+    });
+
+    $('recomendacion').textContent = h.recomendacion;
+    $('siguiente-paso').textContent = h.siguientePaso;
+
+    const listaRecorrido = $('lista-recorrido');
+    listaRecorrido.innerHTML = '';
+    estado.recorrido.forEach(function (paso) {
+      const li = document.createElement('li');
+      li.textContent =
+        paso.pregunta.texto + ' — respuesta: «' + paso.opcionElegida + '» (' +
+        (paso.acierto ? 'acierto' : 'fallo') + ')';
+      listaRecorrido.appendChild(li);
+    });
+
+    $('recta-estado').textContent =
+      'Sesión terminada tras ' + estado.recorrido.length + ' preguntas';
+    mostrarPantalla('final');
+  }
+
+  /* ---------------- Arranque ---------------- */
+
+  construirRecta();
+
+  $('boton-empezar').addEventListener('click', function () {
+    nuevaSesion();
+    mostrarPantalla('pregunta');
+    plantearSiguiente();
+  });
+
+  $('boton-siguiente').addEventListener('click', function () {
+    if (estado.cierre && estado.cierre.parar) {
+      mostrarFinal();
+    } else {
+      plantearSiguiente();
+    }
+  });
+
+  $('boton-repetir').addEventListener('click', function () {
+    nuevaSesion();
+    mostrarPantalla('pregunta');
+    plantearSiguiente();
+  });
+})();
+</script>
+</body>
+</html>
