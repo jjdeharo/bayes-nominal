@@ -48,7 +48,7 @@ node validacion.js            # 1000 simulaciones por hipótesis
 node validacion.js 5000 42    # simulaciones y semilla
 ```
 
-Resultado con el banco actual (1000 simulaciones por hipótesis, semilla 42): **94 % de exactitud global**, sesiones de 5,3–5,6 preguntas de media y más del 96 % de cierres firmes. La matriz mide la fiabilidad *bajo el modelo* (los respondentes salen del propio modelo): indica si el banco discrimina las hipótesis, no si los parámetros reflejan la realidad.
+Resultado con el banco actual de 24 preguntas (1000 simulaciones por hipótesis, semilla 42): **94,3 % de exactitud global**, sesiones de 5,3–5,5 preguntas de media y más del 99 % de cierres firmes. La matriz mide la fiabilidad *bajo el modelo* (los respondentes salen del propio modelo): indica si el banco discrimina las hipótesis, no si los parámetros reflejan la realidad.
 
 ## Licencias
 

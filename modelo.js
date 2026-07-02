@@ -331,6 +331,156 @@
       L: [0.9, 0.15, 0.85, 0.9],
       explicacion:
         'Igualando cifras: 0,500 · 0,450 · 0,405. En milésimas: 500 > 450 > 405.'
+    },
+    {
+      id: 'c8',
+      categoria: 'Comparación',
+      texto: '¿Cuál es mayor: 0,6 o 0,58?',
+      opciones: [
+        { t: '0,6', fb: null },
+        { t: '0,58', fb: '58 parece más que 6, pero son centésimas: 0,58 son 58 centésimas y 0,6 son 60.' },
+        { t: 'Son iguales', fb: null },
+        { t: 'No se puede saber', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.15, 0.9, 0.9],
+      explicacion:
+        '0,6 = 0,60. En centésimas: 60 > 58, así que 0,6 > 0,58.'
+    },
+    {
+      id: 'c9',
+      categoria: 'Comparación',
+      texto: '¿Cuál es mayor: 0,5 o 0,55?',
+      opciones: [
+        { t: '0,55', fb: null },
+        { t: '0,5', fb: 'Tener menos cifras no hace mayor al número: 0,5 son 50 centésimas y 0,55 son 55.' },
+        { t: 'Son iguales', fb: null },
+        { t: 'No se puede saber', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.9, 0.2, 0.9],
+      explicacion:
+        '0,5 = 0,50 y 55 > 50 centésimas: por eso 0,55 > 0,5.'
+    },
+    {
+      id: 'c10',
+      categoria: 'Comparación',
+      texto: '¿Cuál es mayor: 0,8 o 0,08?',
+      opciones: [
+        { t: '0,8', fb: null },
+        { t: '0,08', fb: 'Más cifras no significa más valor: el cero después de la coma hace a 0,08 diez veces menor que 0,8.' },
+        { t: 'Son iguales', fb: 'No lo son: el cero después de la coma sí cuenta. 0,8 son 8 décimas y 0,08 son 8 centésimas.' },
+        { t: 'No se puede saber', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.2, 0.85, 0.15],
+      explicacion:
+        '0,8 son 80 centésimas y 0,08 son 8 centésimas: 0,8 es diez veces mayor.'
+    },
+    {
+      id: 'c11',
+      categoria: 'Comparación',
+      texto: '¿Cuál es mayor: 1,5 o 1,25?',
+      opciones: [
+        { t: '1,5', fb: null },
+        { t: '1,25', fb: 'La parte entera es la misma (1) y 25 parece más que 5, pero 0,5 son 50 centésimas frente a las 25 de 0,25.' },
+        { t: 'Son iguales', fb: null },
+        { t: 'No se puede saber', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.2, 0.9, 0.9],
+      explicacion:
+        'La parte entera empata (1 = 1); en la decimal, 0,5 = 0,50 > 0,25. Por tanto 1,5 > 1,25.'
+    },
+    {
+      id: 'e3',
+      categoria: 'Equivalencia',
+      texto: '¿Cuál de estos números es igual a 0,70?',
+      opciones: [
+        { t: '0,7', fb: null },
+        { t: '0,07', fb: 'En 0,07 el cero va justo después de la coma y cambia el valor: son 7 centésimas, no 7 décimas.' },
+        { t: '7', fb: '7 es un número entero; 0,70 es menor que 1.' },
+        { t: '0,077', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.25, 0.25, 0.15],
+      explicacion:
+        'El cero final no cambia el valor: 0,70 = 0,7 (70 centésimas = 7 décimas). En cambio 0,07 son solo 7 centésimas.'
+    },
+    {
+      id: 'e4',
+      categoria: 'Equivalencia',
+      texto: '¿Qué relación hay entre 0,4 y 0,04?',
+      opciones: [
+        { t: '0,4 es mayor', fb: null },
+        { t: 'Son el mismo número', fb: 'No lo son: el cero después de la coma divide el valor entre diez. 0,4 son 40 centésimas y 0,04 solo 4.' },
+        { t: '0,04 es mayor', fb: 'Más cifras no significa mayor: 0,04 son 4 centésimas frente a las 40 de 0,4.' },
+        { t: 'No se pueden comparar', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.2, 0.85, 0.15],
+      explicacion:
+        '0,4 = 0,40. Como 40 > 4 centésimas, 0,4 es diez veces mayor que 0,04.'
+    },
+    {
+      id: 'o3',
+      categoria: 'Ordenación',
+      texto: '¿Cuál es el mayor de estos tres números: 0,9 · 0,85 · 0,425?',
+      opciones: [
+        { t: '0,9', fb: null },
+        { t: '0,425', fb: '425 es el entero más grande, pero son milésimas: 0,425 < 0,85 < 0,9.' },
+        { t: '0,85', fb: null },
+        { t: 'Los tres son iguales', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.15, 0.85, 0.9],
+      explicacion:
+        'Igualando cifras: 0,900 · 0,850 · 0,425. En milésimas: 900 > 850 > 425, así que el mayor es 0,9.'
+    },
+    {
+      id: 'o4',
+      categoria: 'Ordenación',
+      texto: 'Ordena de menor a mayor: 0,07 · 0,2 · 0,15',
+      opciones: [
+        { t: '0,07 < 0,15 < 0,2', fb: null },
+        { t: '0,2 < 0,07 < 0,15', fb: 'Has ordenado 2 < 7 < 15 como si fueran enteros; en centésimas el orden es 7 < 15 < 20.' },
+        { t: '0,15 < 0,2 < 0,07', fb: 'Parece que 0,07 se ha leído como 0,7: el cero después de la coma lo hace pequeño, son solo 7 centésimas.' },
+        { t: '0,15 < 0,07 < 0,2', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.15, 0.8, 0.15],
+      explicacion:
+        'En centésimas: 0,07 son 7; 0,15 son 15; 0,2 son 20. El orden es 0,07 < 0,15 < 0,2.'
+    },
+    {
+      id: 'r4',
+      categoria: 'Recta y densidad',
+      texto: '¿Qué número está entre 0,25 y 0,26?',
+      opciones: [
+        { t: '0,255', fb: null },
+        { t: 'No hay ningún número entre ellos', fb: 'Entre 25 y 26 no hay enteros, pero entre 0,25 y 0,26 hay infinitos decimales: 0,251; 0,255; 0,259…' },
+        { t: '0,27', fb: null },
+        { t: '0,24', fb: null }
+      ],
+      correcta: 0,
+      L: [0.85, 0.2, 0.3, 0.85],
+      explicacion:
+        '0,25 = 0,250 y 0,26 = 0,260; entre 250 y 260 milésimas está, por ejemplo, 0,255. De hecho hay infinitos.'
+    },
+    {
+      id: 'r5',
+      categoria: 'Recta y densidad',
+      texto: 'En la recta numérica, ¿qué número está más cerca del 1: 0,9 o 0,111?',
+      opciones: [
+        { t: '0,9', fb: null },
+        { t: '0,111', fb: '111 parece grande, pero son milésimas: 0,111 está cerca del 0,1, lejos del 1.' },
+        { t: 'Los dos están a la misma distancia', fb: null },
+        { t: 'Ninguno de los dos está entre 0 y 1', fb: null }
+      ],
+      correcta: 0,
+      L: [0.9, 0.15, 0.85, 0.9],
+      explicacion:
+        '0,9 = 0,900 está a solo una décima del 1; 0,111 está mucho más lejos, cerca de 0,1.'
     }
   ];
 

@@ -378,6 +378,27 @@
   ul.lista-hipotesis li { margin: 0.4rem 0; }
   ul.lista-hipotesis strong { color: var(--tinta-1); }
 
+  ul.lista-errores {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    display: grid;
+    gap: 0.6rem;
+  }
+  ul.lista-errores li {
+    border: 1px solid var(--linea);
+    border-left: 3px solid var(--serie);
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    color: var(--tinta-2);
+    font-variant-numeric: tabular-nums;
+  }
+  ul.lista-errores strong {
+    display: block;
+    color: var(--tinta-1);
+    margin-bottom: 0.15rem;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .grafico .barra, .recta .cursor { transition: none; }
   }
@@ -404,15 +425,31 @@
   <!-- Pantalla de inicio -->
   <section id="pantalla-inicio" class="tarjeta">
     <h2>Qué hace este recurso</h2>
-    <p>Hay una manera correcta de comparar decimales y tres errores muy frecuentes
-    (por ejemplo, creer que 0,25 &gt; 0,7 porque 25 &gt; 7). Este recurso te hace unas
-    pocas preguntas y, según lo que respondas, va eligiendo la siguiente para
-    identificar cuál de esas cuatro maneras es la tuya.</p>
+    <p>Te hará preguntas sobre números decimales para comprobar cómo los comparas.
+    En concreto, busca si cometes alguno de estos <strong>tres errores</strong>, muy
+    frecuentes al aprender los decimales:</p>
+    <ul class="lista-errores">
+      <li>
+        <strong>1. Comparar la parte decimal como si fuera un número entero</strong>
+        Creer que 0,25 &gt; 0,7 «porque 25 &gt; 7».
+      </li>
+      <li>
+        <strong>2. Pensar que más cifras decimales hacen el número más pequeño</strong>
+        Creer que 0,3 &gt; 0,45 «porque las centésimas son más pequeñas que las décimas».
+      </li>
+      <li>
+        <strong>3. No contar los ceros que van justo después de la coma</strong>
+        Leer 0,07 como si fuera 0,7.
+      </li>
+    </ul>
+    <p>Si no cometes ninguno, el resultado dirá que comparas bien. Las preguntas no
+    siguen un orden fijo: cada respuesta ayuda a elegir la siguiente más útil para
+    distinguir entre esas posibilidades.</p>
     <p>La ayuda que recibirás:</p>
     <ul style="color: var(--tinta-2); padding-left: 1.25rem;">
       <li>después de cada pregunta, una explicación breve de la respuesta;</li>
-      <li>al final, un informe que te dice si comparas bien o, si no, cuál es
-      exactamente tu error y con qué seguridad lo afirma;</li>
+      <li>al final, un informe que te dice si comparas bien o, si no, cuál de los
+      tres errores cometes y con qué seguridad lo afirma;</li>
       <li>y una recomendación concreta de qué practicar para corregirlo.</li>
     </ul>
     <p>Responde con calma. El recurso termina solo, cuando ya tiene una idea clara:
