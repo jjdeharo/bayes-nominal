@@ -381,23 +381,77 @@
   ul.lista-errores {
     list-style: none;
     padding: 0;
-    margin: 1rem 0;
+    margin: 1rem 0 1.25rem;
     display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.6rem;
+  }
+  @media (max-width: 640px) {
+    ul.lista-errores { grid-template-columns: 1fr; }
   }
   ul.lista-errores li {
     border: 1px solid var(--linea);
-    border-left: 3px solid var(--serie);
+    border-top: 3px solid var(--serie);
     border-radius: 8px;
-    padding: 0.65rem 1rem;
-    color: var(--tinta-2);
+    padding: 0.75rem 0.85rem;
     font-variant-numeric: tabular-nums;
   }
-  ul.lista-errores strong {
+  ul.lista-errores .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    background: var(--serie-pista);
+    color: var(--serie);
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  ul.lista-errores .titulo-error {
     display: block;
     color: var(--tinta-1);
-    margin-bottom: 0.15rem;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 0.3rem;
+    line-height: 1.35;
   }
+  ul.lista-errores .ejemplo-error {
+    display: block;
+    color: var(--tinta-2);
+    font-size: 0.85rem;
+  }
+
+  /* Acordeón de la pantalla de inicio */
+  details.plegable {
+    border-top: 1px solid var(--linea);
+    padding: 0.85rem 0;
+  }
+  details.plegable:last-of-type { border-bottom: 1px solid var(--linea); margin-bottom: 1.25rem; }
+  details.plegable summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--tinta-1);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  details.plegable summary::-webkit-details-marker { display: none; }
+  details.plegable summary::after {
+    content: '+';
+    color: var(--tinta-suave);
+    font-weight: 400;
+    font-size: 1.2rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  details.plegable[open] summary::after { content: '−'; }
+  details.plegable summary:focus-visible { outline: 2px solid var(--serie); outline-offset: 2px; }
+  details.plegable .contenido-plegable { margin-top: 0.75rem; color: var(--tinta-2); }
+  details.plegable .contenido-plegable > *:first-child { margin-top: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .grafico .barra, .recta .cursor { transition: none; }
@@ -425,53 +479,61 @@
   <!-- Pantalla de inicio -->
   <section id="pantalla-inicio" class="tarjeta">
     <h2>Qué hace este recurso</h2>
-    <p>Te hará preguntas sobre números decimales para comprobar cómo los comparas.
-    En concreto, busca si cometes alguno de estos <strong>tres errores</strong>, muy
-    frecuentes al aprender los decimales:</p>
+    <p>Unas pocas preguntas sobre números decimales para ver si cometes alguno de
+    estos <strong>tres errores</strong> muy frecuentes. Si no cometes ninguno, el
+    resultado dirá que comparas bien.</p>
     <ul class="lista-errores">
       <li>
-        <strong>1. Comparar la parte decimal como si fuera un número entero</strong>
-        Creer que 0,25 &gt; 0,7 «porque 25 &gt; 7».
+        <span class="num">1</span>
+        <span class="titulo-error">Tratas la parte decimal como un número entero</span>
+        <span class="ejemplo-error">Crees que 0,25 &gt; 0,7 «porque 25 &gt; 7».</span>
       </li>
       <li>
-        <strong>2. Pensar que más cifras decimales hacen el número más pequeño</strong>
-        Creer que 0,3 &gt; 0,45 «porque las centésimas son más pequeñas que las décimas».
+        <span class="num">2</span>
+        <span class="titulo-error">Crees que más cifras decimales es menos cantidad</span>
+        <span class="ejemplo-error">Crees que 0,3 &gt; 0,45.</span>
       </li>
       <li>
-        <strong>3. No contar los ceros que van justo después de la coma</strong>
-        Leer 0,07 como si fuera 0,7.
+        <span class="num">3</span>
+        <span class="titulo-error">No cuentas los ceros justo después de la coma</span>
+        <span class="ejemplo-error">Lees 0,07 como si fuera 0,7.</span>
       </li>
     </ul>
-    <p>Si no cometes ninguno, el resultado dirá que comparas bien. Las preguntas no
-    siguen un orden fijo: cada respuesta ayuda a elegir la siguiente más útil para
-    distinguir entre esas posibilidades.</p>
-    <p>La ayuda que recibirás:</p>
-    <ul style="color: var(--tinta-2); padding-left: 1.25rem;">
-      <li>después de cada pregunta, una explicación breve de la respuesta;</li>
-      <li>al final, un informe que te dice si comparas bien o, si no, cuál de los
-      tres errores cometes y con qué seguridad lo afirma;</li>
-      <li>y una recomendación concreta de qué practicar para corregirlo.</li>
-    </ul>
-    <p>Responde con calma. El recurso termina solo, cuando ya tiene una idea clara:
-    normalmente entre 5 y 12 preguntas.</p>
-    <details>
-      <summary style="cursor:pointer; color: var(--tinta-2);">Información para docentes</summary>
-      <p style="color: var(--tinta-2);">Este recurso es un ejemplo de la
-      <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
-      con <strong>hipótesis nominales</strong> (no jerárquicas): en lugar de estimar un nivel ordenado,
-      mantiene una distribución de probabilidad sobre cuatro explicaciones alternativas del comportamiento
-      del alumno, sin orden entre ellas:</p>
-      <ul class="lista-hipotesis">
-        <li><strong>Dominio del orden decimal</strong>: compara correctamente.</li>
-        <li><strong>Regla del número entero</strong>: «más cifras, mayor» (0,25 &gt; 0,7 porque 25 &gt; 7).</li>
-        <li><strong>Regla de la fracción</strong>: «menos cifras, mayor» (0,3 &gt; 0,45).</li>
-        <li><strong>Cero invisible</strong>: ignora los ceros tras la coma (lee 0,07 como 0,7).</li>
-      </ul>
-      <p style="color: var(--tinta-2);">Cada pregunta lleva un vector de verosimilitudes
-      P(acierto&nbsp;|&nbsp;H<sub>i</sub>) — no se usa IRT logística, que exige orden —, la siguiente pregunta se elige por
-      máxima ganancia esperada de información y el diagnóstico final es la hipótesis de máxima probabilidad
-      posterior (MAP) con su confianza. Durante la sesión puedes abrir el panel «Ver el estado bayesiano».</p>
+
+    <details class="plegable">
+      <summary>Cómo funciona</summary>
+      <div class="contenido-plegable">
+        <p>Las preguntas no siguen un orden fijo: cada respuesta ayuda a elegir la
+        siguiente más útil para distinguir entre esas posibilidades. Después de
+        cada pregunta verás una explicación breve, y el recurso termina solo en
+        cuanto tiene una idea clara (normalmente entre 5 y 12 preguntas).</p>
+        <p>Al final recibirás un informe que dice si comparas bien o, si no, cuál
+        de los tres errores cometes, con qué seguridad lo afirma y una
+        recomendación concreta de qué practicar para corregirlo.</p>
+      </div>
     </details>
+
+    <details class="plegable">
+      <summary>Información para docentes</summary>
+      <div class="contenido-plegable">
+        <p>Este recurso es un ejemplo de la
+        <a href="https://jjdeharo.github.io/recursos-adaptativos/">metodología de recursos adaptativos bayesianos</a>
+        con <strong>hipótesis nominales</strong> (no jerárquicas): en lugar de estimar un nivel ordenado,
+        mantiene una distribución de probabilidad sobre cuatro explicaciones alternativas del comportamiento
+        del alumno, sin orden entre ellas:</p>
+        <ul class="lista-hipotesis">
+          <li><strong>Dominio del orden decimal</strong>: compara correctamente.</li>
+          <li><strong>Regla del número entero</strong>: «más cifras, mayor» (0,25 &gt; 0,7 porque 25 &gt; 7).</li>
+          <li><strong>Regla de la fracción</strong>: «menos cifras, mayor» (0,3 &gt; 0,45).</li>
+          <li><strong>Cero invisible</strong>: ignora los ceros tras la coma (lee 0,07 como 0,7).</li>
+        </ul>
+        <p>Cada pregunta lleva un vector de verosimilitudes
+        P(acierto&nbsp;|&nbsp;H<sub>i</sub>) — no se usa IRT logística, que exige orden —, la siguiente pregunta se elige por
+        máxima ganancia esperada de información y el diagnóstico final es la hipótesis de máxima probabilidad
+        posterior (MAP) con su confianza. Durante la sesión puedes abrir el panel «Ver el estado bayesiano».</p>
+      </div>
+    </details>
+
     <button class="boton" id="boton-empezar">Empezar</button>
   </section>
 
