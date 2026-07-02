@@ -78,48 +78,33 @@
 
   .subtitulo { color: var(--tinta-2); margin: 0; max-width: 36rem; }
 
-  /* ---------- La recta 0→1 (progreso) ---------- */
+  /* ---------- Progreso de la sesión (nº de pregunta) ---------- */
 
-  .recta {
-    margin: 2rem 0 0.35rem;
-    position: relative;
-    height: 26px;
-  }
-  .recta .linea-base {
-    position: absolute;
-    left: 0; right: 0; top: 12px;
-    border-top: 1px solid var(--eje);
-  }
-  .recta .marca-tick {
-    position: absolute;
-    top: 8px;
-    width: 1px;
-    height: 9px;
-    background: var(--eje);
-  }
-  .recta .marca-tick.mayor { top: 5px; height: 15px; }
-  .recta .cursor {
-    position: absolute;
-    top: 8px;
-    width: 9px; height: 9px;
-    border-radius: 50%;
-    background: var(--serie);
-    border: 2px solid var(--superficie);
-    transform: translateX(-50%);
-    transition: left 0.4s ease;
-  }
-  .recta-pie {
+  .progreso {
     display: flex;
-    justify-content: space-between;
-    font-size: 0.78rem;
-    color: var(--tinta-suave);
-    font-variant-numeric: tabular-nums;
+    align-items: center;
+    gap: 0.85rem;
+    margin: 1.75rem 0 1.25rem;
   }
-  .recta-estado {
-    text-align: center;
+  .progreso-pista {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--linea);
+    overflow: hidden;
+  }
+  .progreso-relleno {
+    height: 100%;
+    background: var(--serie);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+  .progreso-texto {
+    flex-shrink: 0;
     font-size: 0.85rem;
     color: var(--tinta-2);
-    margin: 0.5rem 0 1.25rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   /* ---------- Tarjetas ---------- */
@@ -454,7 +439,7 @@
   details.plegable .contenido-plegable > *:first-child { margin-top: 0; }
 
   @media (prefers-reduced-motion: reduce) {
-    .grafico .barra, .recta .cursor { transition: none; }
+    .grafico .barra, .progreso-relleno { transition: none; }
   }
 </style>
 </head>
@@ -469,11 +454,12 @@
     corregirlo. No es un examen y no hay nota.</p>
   </header>
 
-  <!-- La recta 0→1: el progreso de la sesión dibujado sobre el propio objeto de estudio -->
-  <div id="zona-recta" class="oculto">
-    <div class="recta" id="recta" aria-hidden="true"></div>
-    <div class="recta-pie"><span>0</span><span>0,5</span><span>1</span></div>
-    <p class="recta-estado" id="recta-estado"></p>
+  <!-- Progreso de la sesión: cuántas preguntas llevas -->
+  <div id="zona-progreso" class="oculto progreso">
+    <div class="progreso-pista" aria-hidden="true">
+      <div class="progreso-relleno" id="progreso-relleno"></div>
+    </div>
+    <span class="progreso-texto" id="progreso-texto"></span>
   </div>
 
   <!-- Pantalla de inicio -->
@@ -680,35 +666,20 @@
     Object.keys(pantallas).forEach(function (k) {
       pantallas[k].classList.toggle('oculto', k !== nombre);
     });
-    $('zona-recta').classList.toggle('oculto', nombre === 'inicio');
+    $('zona-progreso').classList.toggle('oculto', nombre === 'inicio');
   }
 
-  /* ---------------- La recta 0→1 de progreso ---------------- */
+  /* ---------------- Progreso de la sesión ---------------- */
 
-  function construirRecta() {
-    const recta = $('recta');
-    recta.innerHTML = '<div class="linea-base"></div>';
-    for (let i = 0; i <= 10; i++) {
-      const tick = document.createElement('div');
-      tick.className = 'marca-tick' + (i % 5 === 0 ? ' mayor' : '');
-      tick.style.left = (i * 10) + '%';
-      recta.appendChild(tick);
-    }
-    const cursor = document.createElement('div');
-    cursor.className = 'cursor';
-    cursor.id = 'cursor-recta';
-    cursor.style.left = '0%';
-    recta.appendChild(cursor);
-  }
-
-  function actualizarRecta() {
+  function actualizarProgreso() {
     const n = estado.recorrido.length;
-    const fraccion = Math.min(n / M.PARAMETROS.N_MAX, 1);
-    $('cursor-recta').style.left = (fraccion * 100) + '%';
     const cerrando = estado.cierre && estado.cierre.parar;
-    $('recta-estado').textContent =
-      'Pregunta ' + (cerrando ? n : n + 1) +
-      ' · avance ' + coma(fraccion, 2) + ' de 1';
+    const numeroPregunta = cerrando ? n : n + 1;
+    const fraccion = Math.min(numeroPregunta / M.PARAMETROS.N_MAX, 1);
+    $('progreso-relleno').style.width = (fraccion * 100) + '%';
+    $('progreso-texto').textContent = cerrando
+      ? 'Terminado tras ' + n + (n === 1 ? ' pregunta' : ' preguntas')
+      : 'Pregunta ' + numeroPregunta + ' de un máximo de ' + M.PARAMETROS.N_MAX;
   }
 
   /* ---------------- Gráfico de barras del posterior ---------------- */
@@ -776,7 +747,7 @@
 
     $('retro').classList.add('oculto');
     $('boton-siguiente').classList.add('oculto');
-    actualizarRecta();
+    actualizarProgreso();
     actualizarPanelEstado();
   }
 
@@ -827,7 +798,7 @@
     // ¿Toca cerrar la sesión?
     estado.cierre = M.evaluarParada(estado.p, estado.recorrido.length, estado.restantes);
 
-    actualizarRecta();
+    actualizarProgreso();
     actualizarPanelEstado();
     const boton = $('boton-siguiente');
     boton.textContent = estado.cierre.parar ? 'Ver el diagnóstico' : 'Siguiente pregunta';
@@ -935,14 +906,14 @@
       listaRecorrido.appendChild(li);
     });
 
-    $('recta-estado').textContent =
-      'Sesión terminada tras ' + estado.recorrido.length + ' preguntas';
+    $('progreso-relleno').style.width = '100%';
+    $('progreso-texto').textContent =
+      'Terminado tras ' + estado.recorrido.length +
+      (estado.recorrido.length === 1 ? ' pregunta' : ' preguntas');
     mostrarPantalla('final');
   }
 
   /* ---------------- Arranque ---------------- */
-
-  construirRecta();
 
   $('boton-empezar').addEventListener('click', function () {
     nuevaSesion();
