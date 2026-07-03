@@ -329,6 +329,8 @@
     font-size: 0.9rem;
   }
 
+  .aviso-fiabilidad { border-left-color: var(--mal); }
+
   .nota-grafico {
     font-size: 0.9rem;
     color: var(--tinta-2);
@@ -562,6 +564,7 @@
         <span class="etiqueta-cifra">de seguridad en este resultado</span>
       </div>
       <p class="aviso-provisional oculto" id="aviso-provisional"></p>
+      <p class="aviso-provisional aviso-fiabilidad oculto" id="aviso-fiabilidad"></p>
 
       <h2>Perfil de errores</h2>
       <p class="nota-grafico">Cada barra indica la probabilidad de presencia de uno de los errores
@@ -782,6 +785,7 @@
     estado.recorrido.push({
       pregunta: q,
       acierto: acierto,
+      indiceOpcion: indiceElegido,
       opcionElegida: q.opciones[indiceElegido].t
     });
 
@@ -886,6 +890,21 @@
       aviso.classList.add('oculto');
     }
 
+    const ajuste = M.personFit(p, estado.recorrido.map(function (paso) {
+      return { q: paso.pregunta, opcion: paso.indiceOpcion };
+    }));
+    const avisoFiab = $('aviso-fiabilidad');
+    if (ajuste.fiable) {
+      avisoFiab.classList.add('oculto');
+    } else {
+      avisoFiab.textContent =
+        'Aviso de fiabilidad: tus respuestas siguen un patrón poco coherente con el perfil ' +
+        'diagnosticado (ajuste l_z = ' + coma(ajuste.lz, 2) + '). Puede deberse a despistes, ' +
+        'a responder al azar o a un error al comparar decimales que este recurso no contempla. ' +
+        'Toma el resultado con cautela y, si puedes, repite el diagnóstico con calma.';
+      avisoFiab.classList.remove('oculto');
+    }
+
     pintarPosterior($('grafico-final'), p);
 
     // Explicación llana de por qué terminó la sesión.
@@ -910,7 +929,8 @@
       coma(M.entropia(p), 2) + ' bits (umbral de cierre H* = ' + coma(M.H_STOP, 2) +
       ') · confianza mínima del veredicto: ' + porcentaje(confianza) +
       ' · cobertura mínima exigida: ' + M.PARAMETROS.MIN_POR_CATEGORIA +
-      ' preguntas por categoría.';
+      ' preguntas por categoría · ajuste del patrón (person-fit): l_z = ' +
+      coma(ajuste.lz, 2) + (ajuste.fiable ? '' : ' (< −2: patrón poco coherente)') + '.';
 
     // Tabla por categoría, con exigencia de muestra mínima (2 intentos).
     const cuerpo = $('tabla-categorias');

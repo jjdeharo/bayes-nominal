@@ -62,12 +62,14 @@ function simularSesion(perfilReal, rng) {
   let p = M.priorPerfiles();
   let restantes = M.BANCO.slice();
   const usoCategorias = {};
+  const historial = [];
   let respondidas = 0;
   let cierre = null;
 
   for (;;) {
     const q = M.seleccionarSiguiente(p, restantes, usoCategorias, rng);
     const indiceRespuesta = M.muestrearRespuestaPerfil(q, perfilReal, rng);
+    historial.push({ q: q, opcion: indiceRespuesta });
     p = M.actualizar(p, q, indiceRespuesta);
     restantes = restantes.filter(function (x) { return x.id !== q.id; });
     usoCategorias[q.categoria] = (usoCategorias[q.categoria] || 0) + 1;
@@ -81,7 +83,8 @@ function simularSesion(perfilReal, rng) {
     diagnostico: perfilDesdePosterior(p),
     firme: cierre.firme,
     preguntas: respondidas,
-    confianza: M.confianzaVeredicto(p)
+    confianza: M.confianzaVeredicto(p),
+    avisoLz: !M.personFit(p, historial).fiable
   };
 }
 
@@ -92,7 +95,7 @@ const perfiles = generarPerfiles();
 const n = perfiles.length;
 const confusion = Array.from({ length: n }, function () { return new Array(n).fill(0); });
 const estadisticas = perfiles.map(function () {
-  return { firmes: 0, preguntas: 0, confianza: 0 };
+  return { firmes: 0, preguntas: 0, confianza: 0, avisosLz: 0 };
 });
 
 for (let h = 0; h < n; h++) {
@@ -105,6 +108,7 @@ for (let h = 0; h < n; h++) {
     if (r.firme) estadisticas[h].firmes += 1;
     estadisticas[h].preguntas += r.preguntas;
     estadisticas[h].confianza += r.confianza;
+    if (r.avisoLz) estadisticas[h].avisosLz += 1;
   }
 }
 
@@ -149,8 +153,12 @@ for (let h = 0; h < n; h++) {
   console.log('  ' + ancho(etiquetas[h], wFila) +
     'cierres firmes: ' + pct(e.firmes / N_SIMULACIONES).trim() +
     ' · preguntas (media): ' + (e.preguntas / N_SIMULACIONES).toFixed(1) +
-    ' · confianza media: ' + (e.confianza / N_SIMULACIONES).toFixed(2));
+    ' · confianza media: ' + (e.confianza / N_SIMULACIONES).toFixed(2) +
+    ' · avisos l_z: ' + pct(e.avisosLz / N_SIMULACIONES).trim());
 }
+console.log('');
+console.log('«Avisos l_z»: sesiones con aviso de person-fit (l_z < -2). Con');
+console.log('respondentes coherentes con el modelo debe ser bajo (falsas alarmas).');
 console.log('');
 console.log('Nota: esta matriz mide la fiabilidad bajo el modelo (los respondentes');
 console.log('sintéticos salen del propio modelo). Indica si el diseño del banco');

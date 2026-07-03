@@ -27,12 +27,16 @@ Siguiendo la [especificación operativa](https://jjdeharo.github.io/recursos-ada
 
 Todo lo demás es la maquinaria general de la metodología: prior del 25 % para cada error, actualización bayesiana tras cada respuesta, selección de la siguiente pregunta por **máxima ganancia esperada de información** (con una primera pregunta elegida al azar entre las mejores y forzando después la cobertura mínima de categorías) y criterio de parada por entropía total (`H ≤ H_stop`), clasificación de cada factor con al menos un 80 % de confianza y un mínimo de `2` preguntas por categoría, con mínimo de 5 preguntas y máximo práctico de 12. Los cierres que no cumplen ambos criterios se presentan como **provisionales**. Al ser un diagnóstico de sesión corta, no se aplica olvido exponencial (`lambda = 1`).
 
+## Person-fit (índice l_z)
+
+Al cerrar la sesión se comprueba si el patrón de respuestas es coherente con el perfil MAP diagnosticado (generalización politómica del índice `l_z`, calculada sobre la opción elegida en cada ítem). Si `l_z < −2`, el resultado se acompaña de un aviso de fiabilidad: puede haber descuidos, azar o un error al comparar decimales que el modelo no contempla. Con pocas preguntas es una señal de cautela orientativa, no una prueba formal. El valor aparece en los detalles técnicos para docentes, y `validacion.js` reporta la tasa de falsas alarmas por perfil.
+
 ## Archivos
 
 ```
 bayes-nominal/
 ├── index.html      Recurso del alumno (autocontenido junto con modelo.js)
-├── modelo.js       Hipótesis, banco de preguntas y motor bayesiano (compartido)
+├── modelo.js       Hipótesis, banco de preguntas, motor bayesiano y person-fit
 ├── validacion.js   Herramienta del autor: separabilidad Monte Carlo (Node)
 └── README.md       Este documento
 ```

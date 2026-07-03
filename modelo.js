@@ -845,6 +845,40 @@
     return mejor;
   }
 
+  /*
+   * Ajuste del patrón individual (person-fit, índice l_z). Evalúa si el
+   * patrón de respuestas es coherente con el perfil MAP diagnosticado:
+   * compara la log-verosimilitud del patrón observado con su media y
+   * varianza esperadas bajo ese perfil, promediando sobre las opciones
+   * de cada ítem (generalización politómica del l_z clásico). Un valor
+   * muy negativo (< -2) señala un patrón que ningún perfil del modelo
+   * explica bien —descuidos, azar o un error no contemplado— y el
+   * diagnóstico debe tomarse con cautela, aunque la confianza sea alta.
+   * Con pocas preguntas es orientativo, no una prueba formal.
+   * `historial` es una lista de { q, opcion } con la pregunta y el
+   * índice de la opción elegida.
+   */
+  function personFit(distribucion, historial) {
+    const perfil = perfilMAP(distribucion);
+    let logL = 0, esperanza = 0, varianza = 0;
+    historial.forEach(function (paso) {
+      const probs = paso.q.pOpcionesPerfiles[perfil.indice];
+      logL += Math.log(probs[paso.opcion]);
+      let e = 0, e2 = 0;
+      probs.forEach(function (p) {
+        if (p > 0) {
+          const lp = Math.log(p);
+          e += p * lp;
+          e2 += p * lp * lp;
+        }
+      });
+      esperanza += e;
+      varianza += e2 - e * e;
+    });
+    const lz = varianza > 0 ? (logL - esperanza) / Math.sqrt(varianza) : 0;
+    return { lz: lz, fiable: lz >= -2 };
+  }
+
   return {
     HIPOTESIS: HIPOTESIS,
     FACTORES: FACTORES,
@@ -866,6 +900,7 @@
     muestrearRespuestaPerfil: muestrearRespuestaPerfil,
     perfilMAP: perfilMAP,
     confianzaVeredicto: confianzaVeredicto,
-    indiceMAP: indiceMAP
+    indiceMAP: indiceMAP,
+    personFit: personFit
   };
 });
