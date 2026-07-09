@@ -687,7 +687,16 @@
       : 'Pregunta ' + numeroPregunta + ' de un máximo de ' + M.PARAMETROS.N_MAX;
   }
 
-  function estadoFactor(prob) {
+  /* Preguntas discriminantes respondidas por factor (hallazgo N6): un error no se
+     declara presente ni ausente sin muestra mínima sobre ese error concreto. */
+  function evidenciaFactores() {
+    return M.evidenciaFactores(estado.recorrido.map(function (r) { return r.pregunta; }));
+  }
+
+  function estadoFactor(prob, evidencia) {
+    if (evidencia !== undefined && evidencia < M.PARAMETROS.MIN_EVIDENCIA_FACTOR) {
+      return 'indeterminado';
+    }
     if (prob >= M.PARAMETROS.P_MIN) return 'presente';
     if (prob <= 1 - M.PARAMETROS.P_MIN) return 'ausente';
     return 'indeterminado';
@@ -702,10 +711,11 @@
   function pintarPosterior(contenedor, p) {
     contenedor.innerHTML = '';
     const marginales = M.marginalesFactores(p);
+    const evidencia = evidenciaFactores();
     M.FACTORES.forEach(function (f, i) {
       const prob = marginales[i];
       const fila = document.createElement('div');
-      fila.className = 'fila' + (estadoFactor(prob) === 'presente' ? ' map' : '');
+      fila.className = 'fila' + (estadoFactor(prob, evidencia[i]) === 'presente' ? ' map' : '');
       fila.title = f.nombre + ': ' + porcentaje(prob);
 
       const etiqueta = document.createElement('span');
@@ -731,7 +741,7 @@
   }
 
   function actualizarPanelEstado() {
-    const perfil = M.evaluarPerfil(estado.p);
+    const perfil = M.evaluarPerfil(estado.p, evidenciaFactores());
     pintarPosterior($('grafico-estado'), estado.p);
     $('dato-entropia').textContent =
       'Entropía total H = ' + coma(M.entropia(estado.p), 2) + ' bits · umbral de cierre H* = ' +
@@ -821,7 +831,8 @@
       estado.p,
       estado.recorrido.length,
       estado.restantes,
-      estado.usoCategorias
+      estado.usoCategorias,
+      evidenciaFactores()
     );
 
     actualizarProgreso();
@@ -850,7 +861,7 @@
 
   function mostrarFinal() {
     const p = estado.p;
-    const perfil = M.evaluarPerfil(p);
+    const perfil = M.evaluarPerfil(p, evidenciaFactores());
     const firme = estado.cierre.firme;
     const presentes = perfil.presentes;
     const ausentes = perfil.ausentes;
@@ -887,10 +898,21 @@
         'Descartados: ' + ausentes.map(function (d) { return d.factor.corta; }).join('; ') + '.'
       );
     }
-    if (indeterminados.length) {
+    // Se separa "no ha quedado claro" (hubo preguntas, la evidencia no decidió) de "no se
+    // ha preguntado lo suficiente sobre este error". Con el prior informativo, la ausencia
+    // arranca en 0,75, así que un factor poco preguntado no debe presentarse como resuelto.
+    const sinEvidencia = indeterminados.filter(function (d) { return d.sinEvidencia; });
+    const noResueltos = indeterminados.filter(function (d) { return !d.sinEvidencia; });
+    if (noResueltos.length) {
       trozosDescripcion.push(
         'Aun no resueltos con claridad: ' +
-        indeterminados.map(function (d) { return d.factor.corta; }).join('; ') + '.'
+        noResueltos.map(function (d) { return d.factor.corta; }).join('; ') + '.'
+      );
+    }
+    if (sinEvidencia.length) {
+      trozosDescripcion.push(
+        'Sin evidencia suficiente para decidir: ' +
+        sinEvidencia.map(function (d) { return d.factor.corta; }).join('; ') + '.'
       );
     }
     $('diagnostico-descripcion').textContent = unirTextos(trozosDescripcion);

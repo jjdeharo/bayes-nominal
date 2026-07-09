@@ -75,7 +75,10 @@ function simularSesion(perfilReal, rng) {
     usoCategorias[q.categoria] = (usoCategorias[q.categoria] || 0) + 1;
     respondidas += 1;
 
-    cierre = M.evaluarParada(p, respondidas, restantes, usoCategorias);
+    cierre = M.evaluarParada(
+      p, respondidas, restantes, usoCategorias,
+      M.evidenciaFactores(historial.map(function (h) { return h.q; }))
+    );
     if (cierre.parar) break;
   }
 

@@ -516,7 +516,17 @@
     N_INICIO_ALEATORIO: 3, // primera pregunta: elegir al azar entre las N mejores
     GANANCIA_MIN: 0.02, // bits: por debajo, la mejor pregunta ya aporta muy poco
     TOLERANCIA_EMPATE: 0.015, // bits: candidatas consideradas empatadas
-    LAMBDA: 1 // sin olvido: diagnóstico de sesión corta
+    LAMBDA: 1, // sin olvido: diagnóstico de sesión corta
+    // Muestra mínima POR FACTOR antes de declararlo presente o ausente (hallazgo N6).
+    // Con el prior informativo P(error)=0,25, la "ausencia" arranca ya en 0,75: basta una
+    // pregunta discriminante acertada para que la marginal caiga a ~0,05 y el factor se
+    // declare ausente. La cobertura por categoría no lo impide, porque una categoría no
+    // discrimina necesariamente todos los factores. El banco actual es lo bastante denso
+    // para que esto no ocurra en la práctica, pero la garantía no debe depender del banco.
+    MIN_EVIDENCIA_FACTOR: 2,
+    // Una pregunta aporta evidencia sobre un factor si su presencia cambia de forma
+    // apreciable la probabilidad de acierto (penalización en logits).
+    UMBRAL_DISCRIMINA: 0.1
   };
 
   const N = FACTORES.length;
@@ -756,8 +766,8 @@
    * Cierre firme solo si todos los factores quedan clasificados como
    * presentes o ausentes con la confianza exigida.
    */
-  function evaluarParada(distribucion, numRespondidas, restantes, usoCategorias) {
-    const perfil = evaluarPerfil(distribucion);
+  function evaluarParada(distribucion, numRespondidas, restantes, usoCategorias, evidencia) {
+    const perfil = evaluarPerfil(distribucion, evidencia);
     const coberturaOK = coberturaCategoriasSuficiente(usoCategorias || {});
     const criterios = perfil.resuelto &&
       perfil.confianzaMin >= PARAMETROS.P_MIN &&
@@ -783,19 +793,51 @@
     return { parar: false, firme: false, motivo: '' };
   }
 
-  function evaluarPerfil(distribucion) {
+  /*
+   * ¿Aporta la pregunta `q` evidencia sobre el factor `i`? Solo si la presencia de ese
+   * error cambia de forma apreciable la probabilidad de acertarla.
+   */
+  function discriminaFactor(q, i) {
+    return q.factores[i].penalizacion > PARAMETROS.UMBRAL_DISCRIMINA;
+  }
+
+  /*
+   * Evidencia acumulada por factor: número de preguntas respondidas que lo discriminan.
+   */
+  function evidenciaFactores(preguntasRespondidas) {
+    return FACTORES.map(function (_, i) {
+      return preguntasRespondidas.filter(function (q) {
+        return discriminaFactor(q, i);
+      }).length;
+    });
+  }
+
+  /*
+   * `evidencia` (opcional): número de preguntas discriminantes respondidas por factor.
+   * Sin ella se clasifica solo por la probabilidad marginal, que es lo que hacía la
+   * versión anterior. Con ella, un factor sin muestra mínima queda `indeterminado`
+   * aunque su marginal sea extrema (hallazgo N6): no se confunde "ausente confirmado"
+   * con "todavía sin evidencia suficiente sobre este error".
+   */
+  function evaluarPerfil(distribucion, evidencia) {
     const marginales = marginalesFactores(distribucion);
     const detalles = FACTORES.map(function (f, i) {
       const prob = marginales[i];
       const confianza = Math.max(prob, 1 - prob);
+      const n = evidencia ? evidencia[i] : Infinity;
+      const sinEvidencia = n < PARAMETROS.MIN_EVIDENCIA_FACTOR;
       let estado = 'indeterminado';
-      if (prob >= PARAMETROS.P_MIN) estado = 'presente';
-      if (prob <= 1 - PARAMETROS.P_MIN) estado = 'ausente';
+      if (!sinEvidencia) {
+        if (prob >= PARAMETROS.P_MIN) estado = 'presente';
+        if (prob <= 1 - PARAMETROS.P_MIN) estado = 'ausente';
+      }
       return {
         factor: f,
         prob: prob,
         confianza: confianza,
-        estado: estado
+        estado: estado,
+        evidencia: evidencia ? n : null,
+        sinEvidencia: sinEvidencia
       };
     });
 
@@ -896,6 +938,8 @@
     coberturaCategoriasSuficiente: coberturaCategoriasSuficiente,
     evaluarParada: evaluarParada,
     evaluarPerfil: evaluarPerfil,
+    discriminaFactor: discriminaFactor,
+    evidenciaFactores: evidenciaFactores,
     probAciertoPerfil: probAciertoPerfil,
     muestrearRespuestaPerfil: muestrearRespuestaPerfil,
     perfilMAP: perfilMAP,
