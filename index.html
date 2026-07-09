@@ -536,6 +536,7 @@
         <p id="retro-especifica"></p>
         <p id="retro-explicacion"></p>
       </div>
+      <div id="zona-calma" style="display:none;margin:12px 0;padding:12px 14px;border-radius:12px;background:#eef6ff;border:1px solid #bcd8f5;color:#1e40af;font-size:.92rem;line-height:1.5"></div>
       <button class="boton oculto" id="boton-siguiente">Siguiente pregunta</button>
     </div>
 
@@ -627,7 +628,8 @@
       recorrido: [], // { pregunta, acierto, opcionElegida }
       porCategoria: {}, // categoria -> { intentos, aciertos }
       preguntaActual: null,
-      cierre: null
+      cierre: null,
+      lastPauseN: -99
     };
   }
 
@@ -763,6 +765,7 @@
     });
 
     $('retro').classList.add('oculto');
+    $('zona-calma').style.display = 'none';
     $('boton-siguiente').classList.add('oculto');
     actualizarProgreso();
     actualizarPanelEstado();
@@ -826,6 +829,20 @@
     const boton = $('boton-siguiente');
     boton.textContent = estado.cierre.parar ? 'Ver el diagnóstico' : 'Siguiente pregunta';
     boton.classList.remove('oculto');
+
+    /* Coherencia EN VIVO (no solo al cierre, hallazgo 3.2): si el patrón ya es
+       inverosímil, pausa con tacto en lugar de seguir gastando banco. */
+    const calma = $('zona-calma'); calma.style.display = 'none';
+    if (!estado.cierre.parar && estado.recorrido.length >= 5
+        && (estado.recorrido.length - estado.lastPauseN) >= 4
+        && !M.personFit(estado.p, estado.recorrido.map(function (paso) {
+             return { q: paso.pregunta, opcion: paso.indiceOpcion };
+           })).fiable) {
+      estado.lastPauseN = estado.recorrido.length;
+      calma.innerHTML = '🌿 <strong>Hagamos una pausa.</strong> Algunas respuestas no encajan del todo con lo que el sistema venía estimando —quizá por un despiste o por ir con prisa—. Respira, lee con calma la siguiente y tómate tu tiempo.';
+      calma.style.display = 'block';
+      boton.textContent = 'Continuar con calma';
+    }
     boton.focus();
   }
 
