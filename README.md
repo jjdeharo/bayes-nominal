@@ -47,6 +47,8 @@ El recurso funciona sin servidor: basta abrir `index.html` en un navegador (con 
 
 `validacion.js` comprueba el **comportamiento del diseño multifactorial**: genera respondentes sintéticos con perfiles de errores distintos, les pasa el mismo test adaptativo con el mismo criterio de parada y construye la matriz de confusión. Es una herramienta del creador del recurso, no forma parte del material del alumno.
 
+Además de la matriz, reporta exactitud equilibrada (media de las diagonales), tasa de factores indeterminados y longitud media, y avisa si algún perfil se recupera menos del `70 %` de las veces o si dos perfiles se confunden de forma sistemática (`≥ 20 %`). Con el banco actual avisa de un perfil: el de los tres errores simultáneos, que se recupera el `64 %` de las veces (se confunde sobre todo con perfiles de dos errores). Es fiabilidad bajo el modelo, no validez empírica.
+
 ```bash
 node validacion.js            # 1000 simulaciones por perfil
 node validacion.js 5000 42    # simulaciones y semilla

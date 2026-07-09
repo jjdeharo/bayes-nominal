@@ -82,12 +82,18 @@ function simularSesion(perfilReal, rng) {
     if (cierre.parar) break;
   }
 
+  const evidencia = M.evidenciaFactores(historial.map(function (h) { return h.q; }));
+  const perfil = M.evaluarPerfil(p, evidencia);
+
   return {
     diagnostico: perfilDesdePosterior(p),
     firme: cierre.firme,
     preguntas: respondidas,
     confianza: M.confianzaVeredicto(p),
-    avisoLz: !M.personFit(p, historial).fiable
+    avisoLz: !M.personFit(p, historial).fiable,
+    // Factores que el test deja sin decidir (por confianza o por muestra insuficiente).
+    indeterminados: perfil.indeterminados.length,
+    sinEvidencia: perfil.detalles.filter(function (d) { return d.sinEvidencia; }).length
   };
 }
 
@@ -98,7 +104,7 @@ const perfiles = generarPerfiles();
 const n = perfiles.length;
 const confusion = Array.from({ length: n }, function () { return new Array(n).fill(0); });
 const estadisticas = perfiles.map(function () {
-  return { firmes: 0, preguntas: 0, confianza: 0, avisosLz: 0 };
+  return { firmes: 0, preguntas: 0, confianza: 0, avisosLz: 0, indeterminados: 0, sinEvidencia: 0 };
 });
 
 for (let h = 0; h < n; h++) {
@@ -112,6 +118,8 @@ for (let h = 0; h < n; h++) {
     estadisticas[h].preguntas += r.preguntas;
     estadisticas[h].confianza += r.confianza;
     if (r.avisoLz) estadisticas[h].avisosLz += 1;
+    estadisticas[h].indeterminados += r.indeterminados;
+    estadisticas[h].sinEvidencia += r.sinEvidencia;
   }
 }
 
@@ -147,19 +155,76 @@ for (let h = 0; h < n; h++) {
   aciertosTotales += confusion[h][h];
 }
 
+// Como cada perfil se simula el mismo número de veces, la exactitud global coincide
+// aquí con la exactitud equilibrada (media de las diagonales).
+const diagonales = [];
+for (let h = 0; h < n; h++) diagonales.push(confusion[h][h] / N_SIMULACIONES);
+const equilibrada = diagonales.reduce(function (a, b) { return a + b; }, 0) / n;
+const preguntasMedia = estadisticas.reduce(function (a, e) {
+  return a + e.preguntas / N_SIMULACIONES;
+}, 0) / n;
+const indetMedia = estadisticas.reduce(function (a, e) {
+  return a + e.indeterminados / (N_SIMULACIONES * M.FACTORES.length);
+}, 0) / n;
+
 console.log('');
 console.log('Exactitud global del diagnóstico: ' + pct(aciertosTotales / (n * N_SIMULACIONES)).trim());
+console.log('Exactitud equilibrada (media de las diagonales): ' + pct(equilibrada).trim());
+console.log('Factores indeterminados: ' + pct(indetMedia).trim() +
+  ' · longitud media: ' + preguntasMedia.toFixed(1) + ' preguntas');
 console.log('');
 console.log('Por perfil:');
 for (let h = 0; h < n; h++) {
   const e = estadisticas[h];
   console.log('  ' + ancho(etiquetas[h], wFila) +
-    'cierres firmes: ' + pct(e.firmes / N_SIMULACIONES).trim() +
+    'aciertos: ' + pct(diagonales[h]).trim() +
+    ' · cierres firmes: ' + pct(e.firmes / N_SIMULACIONES).trim() +
     ' · preguntas (media): ' + (e.preguntas / N_SIMULACIONES).toFixed(1) +
     ' · confianza media: ' + (e.confianza / N_SIMULACIONES).toFixed(2) +
+    ' · indeterminados: ' + pct(e.indeterminados / (N_SIMULACIONES * M.FACTORES.length)).trim() +
     ' · avisos l_z: ' + pct(e.avisosLz / N_SIMULACIONES).trim());
 }
+
+/* Criterio de aceptación (valor orientativo de la metodología): si un perfil relevante
+   no se recupera al menos el 70 % de las veces bajo el propio modelo, o si dos perfiles
+   se confunden de forma sistemática, el banco no debe presentarse como bien separado. */
+const UMBRAL_ALERTA = 0.70;
+const UMBRAL_CONFUSION = 0.20;
+const flojos = [];
+const confusiones = [];
+for (let h = 0; h < n; h++) {
+  if (diagonales[h] < UMBRAL_ALERTA) {
+    flojos.push(etiquetas[h] + ' (' + pct(diagonales[h]).trim() + ')');
+  }
+  for (let d = 0; d < n; d++) {
+    if (d !== h && confusion[h][d] / N_SIMULACIONES >= UMBRAL_CONFUSION) {
+      confusiones.push(etiquetas[h] + ' -> ' + etiquetas[d] +
+        ' (' + pct(confusion[h][d] / N_SIMULACIONES).trim() + ')');
+    }
+  }
+}
+
 console.log('');
+if (flojos.length || confusiones.length) {
+  console.log('AVISO: el banco no separa bien todos los perfiles bajo el propio modelo.');
+  if (flojos.length) {
+    console.log('  Por debajo del ' + (100 * UMBRAL_ALERTA).toFixed(0) + ' % de acierto: ' +
+      flojos.join('; '));
+  }
+  if (confusiones.length) {
+    console.log('  Confusión sistemática (>= ' + (100 * UMBRAL_CONFUSION).toFixed(0) + ' %): ' +
+      confusiones.join('; '));
+  }
+  console.log('  Conviene añadir ítems que discriminen esos perfiles, revisar las');
+  console.log('  verosimilitudes, o declarar explícitamente la limitación.');
+} else {
+  console.log('Sin avisos: todos los perfiles se recuperan por encima del ' +
+    (100 * UMBRAL_ALERTA).toFixed(0) + ' % y no hay confusiones sistemáticas.');
+}
+
+console.log('');
+console.log('«Indeterminados»: factores que el test deja sin decidir, por confianza');
+console.log('insuficiente o por no haber respondido bastantes preguntas que los discriminen.');
 console.log('«Avisos l_z»: sesiones con aviso de person-fit (l_z < -2). Con');
 console.log('respondentes coherentes con el modelo debe ser bajo (falsas alarmas).');
 console.log('');
